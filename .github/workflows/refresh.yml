@@ -1,0 +1,55 @@
+name: Refresh Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'   # every 6 hours automatically
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Execute notebook
+        env:
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_BOARD_ID:  ${{ secrets.MONDAY_BOARD_ID }}
+          GITHUB_ACTIONS_PAT: ${{ secrets.ACTIONS_DISPATCH_PAT }}
+        run: |
+          jupyter nbconvert \
+            --to notebook \
+            --execute \
+            --ExecutePreprocessor.timeout=900 \
+            --inplace \
+            LCG_Monday_Candidatos_vf.ipynb
+
+      - name: Copy latest dashboard to index.html
+        run: |
+          LATEST=$(ls LCG_Candidatos_vf/*/LCG_Dashboard*.html 2>/dev/null | sort | tail -1)
+          if [ -z "$LATEST" ]; then
+            echo "No dashboard HTML found — notebook may have failed"
+            exit 1
+          fi
+          cp "$LATEST" index.html
+          echo "Copied: $LATEST -> index.html"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          publish_branch: gh-pages
+          exclude_assets: '.github,LCG_Candidatos_vf,*.ipynb,*.py,requirements.txt,*.BACKUP*'

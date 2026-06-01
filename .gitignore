@@ -1,0 +1,7 @@
+LCG_Candidatos_vf/
+LCG_Candidatos/
+*.BACKUP*
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+*.pyc
