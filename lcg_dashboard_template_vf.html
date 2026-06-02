@@ -31,11 +31,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-prim
 
 /* KPI */
 .kpi-row{display:grid;gap:10px;margin-bottom:1.5rem;}
+.kpi-row-7{grid-template-columns:repeat(7,1fr);}
 .kpi-row-6{grid-template-columns:repeat(6,1fr);}
 .kpi-row-5{grid-template-columns:repeat(5,1fr);}
 .kpi-row-4{grid-template-columns:repeat(4,1fr);}
 .kpi-row-3{grid-template-columns:repeat(3,1fr);}
-@media(max-width:900px){.kpi-row-6{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:1100px){.kpi-row-7{grid-template-columns:repeat(4,1fr);}}
+@media(max-width:900px){.kpi-row-7{grid-template-columns:repeat(3,1fr);}.kpi-row-6{grid-template-columns:repeat(3,1fr);}}
 .kpi{background:#fff;border:1px solid var(--border);border-radius:12px;padding:13px 15px;position:relative;overflow:hidden;}
 .kpi.dark{background:var(--lcg-dark);}.kpi.accent{background:var(--lcg-mid);}
 .kpi.green-lite{background:#E8F5EE;border-color:#A8DFC0;}.kpi.red-lite{background:#FDECEA;border-color:#F5B8B3;}.kpi.amber-lite{background:#FEF4E5;border-color:#F5D89A;}
@@ -351,7 +353,7 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
       <button class="date-shortcut" id="btn-mes" onclick="setDateRange('month',this)">Este mes</button>
     </div>
   </div>
-  <div class="kpi-row kpi-row-6" id="kpi-mov"></div>
+  <div class="kpi-row kpi-row-7" id="kpi-mov"></div>
 
   <div class="section-label">Movimiento neto — waterfall</div>
   <div class="card">
@@ -581,7 +583,10 @@ function nivelCls(n){const m={Alto:'pill-alto',Sr:'pill-sr',Jr:'pill-jr',Bajo:'p
 function scoreClass(s){if(s==null)return'';const n=parseFloat(s);if(isNaN(n))return'';return n<75?'score-low':n<88?'score-mid':'score-ok';}
 const _storedCfg=(()=>{try{return JSON.parse(localStorage.getItem('lcg_dashboard_config')||'{}');}catch(e){return{};}})();
 const _DEFAULTS_BAJA=['Descartado','Inactivo','Contratado','Contratados','Oferta Rechazada'];
-const ACTIVE_EXCL=(_storedCfg.baja&&_storedCfg.baja.length)?_storedCfg.baja:_DEFAULTS_BAJA;
+// Always exclude Contratado/Contratados regardless of config (they are never "activos")
+const _ALWAYS_EXCL=['Contratado','Contratados'];
+const _configBaja=(_storedCfg.baja&&_storedCfg.baja.length)?_storedCfg.baja:_DEFAULTS_BAJA;
+const ACTIVE_EXCL=[...(new Set([..._configBaja,..._ALWAYS_EXCL]))];
 const OFERTA_STATUSES=(_storedCfg.oferta&&_storedCfg.oferta.length)?_storedCfg.oferta:['Oferta Rechazada'];
 function isActive(d){return!ACTIVE_EXCL.includes(d.estatus);}
 function daysCls(n){const amber=_storedCfg.daysAmber||30;const red=_storedCfg.daysRed||60;if(n==null)return'days-ok';return n>red?'days-hot':n>amber?'days-warn':'days-ok';}
@@ -754,16 +759,23 @@ function renderMovimientos(){
   if(!fromVal||!toVal)return;
   const from=new Date(fromVal+'T00:00:00'),to=new Date(toVal+'T23:59:59');
 
-  const allNonHired=pipeData.filter(d=>!['Contratado','Contratados'].includes(d.estatus));
-  const activosInicialesActive=allNonHired.filter(d=>{
-    const cr=toDate(d.creado_en);if(!cr||cr>from)return false;
-    if(ACTIVE_EXCL.includes(d.estatus)){const upd=toDate(d.actualizado);if(upd&&upd<from)return false;}
-    return isActive(d);
+  // ── Period datasets ───────────────────────────────────────────────
+  // "Active at start" = existed before `from` AND was not yet excluded.
+  // Candidates who became excluded DURING the period are still counted here
+  // (they were active at inicio and will appear as an outflow bar).
+  const CONTRATADO_STATUS=['Contratado','Contratados'];
+  const activosInicialesActive=pipeData.filter(d=>{
+    const cr=toDate(d.creado_en);if(!cr||cr>=from)return false;
+    const upd=toDate(d.actualizado);
+    if(CONTRATADO_STATUS.includes(d.estatus))return!!(upd&&upd>=from); // hired during period → was active at inicio
+    if(ACTIVE_EXCL.includes(d.estatus))return!!(upd&&upd>=from);       // excluded during period → was active at inicio
+    return true; // currently active
   });
   const newEntries=pipeData.filter(d=>{const cr=toDate(d.creado_en);return cr&&cr>=from&&cr<=to;});
   const descartadosInPeriod=pipeData.filter(d=>{if(d.estatus!=='Descartado')return false;const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to;});
   const inactivosInPeriod=pipeData.filter(d=>{if(d.estatus!=='Inactivo')return false;const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to;});
   const ofertaRechazadaInPeriod=pipeData.filter(d=>{if(!OFERTA_STATUSES.includes(d.estatus))return false;const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to;});
+  const contratadosInPeriod=pipeData.filter(d=>{if(!CONTRATADO_STATUS.includes(d.estatus))return false;const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to;});
   const activosFinales=pipeData.filter(d=>{const cr=toDate(d.creado_en);return cr&&cr<=to&&isActive(d);});
 
   // ── KPIs (6 cards) ───────────────────────────────────────────────
@@ -773,6 +785,7 @@ function renderMovimientos(){
    {label:'Descartados',val:descartadosInPeriod.length,sub:'Movidos a descartado',cls:'red-lite'},
    {label:'Oferta Rechazada',val:ofertaRechazadaInPeriod.length,sub:'Descuentan de activos',cls:'red-lite'},
    {label:'Pasados a inactivo',val:inactivosInPeriod.length,sub:'Sin actividad',cls:'amber-lite'},
+   {label:'Contratados',val:contratadosInPeriod.length,sub:'Contratados en período',cls:'green-lite'},
    {label:'Activos al final',val:activosFinales.length,sub:toVal,dark:true},
   ].forEach(k=>{kpiEl.innerHTML+=`<div class="kpi ${k.dark?'dark':k.cls||''}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${(!k.dark&&!k.cls)?'<div class="kpi-bar"></div>':''}</div>`;});
 
@@ -780,7 +793,7 @@ function renderMovimientos(){
   const wfFilters=document.getElementById('wf-nivel-filters');wfFilters.innerHTML='';
   _movNivelFilter.clear();
   const allBtn=document.createElement('button');allBtn.className='filter-btn on';allBtn.textContent='Todos los niveles';
-  allBtn.onclick=()=>{_movNivelFilter.clear();wfFilters.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allBtn.classList.add('on');drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,activosFinales);};
+  allBtn.onclick=()=>{_movNivelFilter.clear();wfFilters.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allBtn.classList.add('on');drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,contratadosInPeriod,activosFinales);};
   wfFilters.appendChild(allBtn);
   NIVEL_LIST.forEach(nv=>{
     const btn=document.createElement('button');btn.className='filter-btn';btn.textContent=nv;
@@ -790,17 +803,17 @@ function renderMovimientos(){
       else{_movNivelFilter.add(nv);btn.classList.add('on');}
       allBtn.classList.toggle('on',_movNivelFilter.size===0);
       const f=s=>_movNivelFilter.size===0?s:s.filter(d=>_movNivelFilter.has(d.nivel));
-      drawWaterfall(f(activosInicialesActive),f(newEntries),f(descartadosInPeriod),f(inactivosInPeriod),f(ofertaRechazadaInPeriod),f(activosFinales));
+      drawWaterfall(f(activosInicialesActive),f(newEntries),f(descartadosInPeriod),f(inactivosInPeriod),f(ofertaRechazadaInPeriod),f(contratadosInPeriod),f(activosFinales));
     };
     wfFilters.appendChild(btn);
   });
 
-  drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,activosFinales);
+  drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,contratadosInPeriod,activosFinales);
 
   // ── Movimientos entre etapas (sorted: higher stage first, Nuevo ingreso last) ──
   const flowEl=document.getElementById('movements-flow');flowEl.innerHTML='';
   const movedSet=new Map();
-  [...newEntries,...descartadosInPeriod,...inactivosInPeriod,...ofertaRechazadaInPeriod].forEach(d=>{if(!movedSet.has(d.item_id))movedSet.set(d.item_id,d);});
+  [...newEntries,...descartadosInPeriod,...inactivosInPeriod,...ofertaRechazadaInPeriod,...contratadosInPeriod].forEach(d=>{if(!movedSet.has(d.item_id))movedSet.set(d.item_id,d);});
   const movedCands=[...movedSet.values()];
   if(!movedCands.length){flowEl.innerHTML=emptyState('Sin movimientos entre etapas en el período');
   }else{
@@ -815,10 +828,11 @@ function renderMovimientos(){
       return(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0);
     });
     sorted.slice(0,30).forEach(d=>{
-      const isNew=newEntries.some(x=>x.item_id===d.item_id),isDesc=descartadosInPeriod.some(x=>x.item_id===d.item_id),isOferta=ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id);
+      const isNew=newEntries.some(x=>x.item_id===d.item_id),isDesc=descartadosInPeriod.some(x=>x.item_id===d.item_id),isOferta=ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id),isCont=contratadosInPeriod.some(x=>x.item_id===d.item_id);
       const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
       let typeColor,fromStage,toStage;
-      if(isNew){typeColor='#1A6B3A';fromStage='Nuevo ingreso';toStage=safe(d.grupo,'Pipeline');}
+      if(isCont){typeColor='#1A6B3A';fromStage=safe(d.grupo,'Pipeline');toStage='✓ Contratado';}
+      else if(isNew){typeColor='#1A6B3A';fromStage='Nuevo ingreso';toStage=safe(d.grupo,'Pipeline');}
       else if(isDesc){typeColor='#9B2335';fromStage=safe(d.grupo,'Pipeline');toStage='Descartado';}
       else if(isOferta){typeColor='#C04040';fromStage=safe(d.grupo,'Pipeline');toStage='Oferta Rechazada';}
       else{typeColor='#8B5A00';fromStage=safe(d.grupo,'Pipeline');toStage='Inactivo';}
@@ -837,50 +851,70 @@ function renderMovimientos(){
     if(movedCands.length>30)flowEl.innerHTML+=`<div style="font-size:11px;color:var(--text-muted);padding:8px 0">+ ${movedCands.length-30} más…</div>`;
   }
 
-  // ── Activos visual: donut rings ───────────────────────────────────
+  // ── Activos visual: nivel squares comparison ─────────────────────
   (function renderActivosVisual(){
     const el=document.getElementById('activos-visual');el.innerHTML='';
-    const sN=activosInicialesActive.length,fN=activosFinales.length;
-    const delta=fN-sN;const deltaSign=delta>=0?'+':'';
-    const deltaColor=delta>=0?'#1A6B3A':'#9B2335';
-    const R=54,CX=70,CY=70,SW=10;
-    const circ=2*Math.PI*R;
-    function ring(val,max,stroke,label,candidates){
-      const pct=max>0?Math.min(val/max,1):0;
-      const dash=pct*circ;const gap=circ-dash;
-      const tipLines=candidates.slice(0,8).map(d=>{const sc=stageColor(d.grupo);return`<span style="display:flex;align-items:center;gap:5px;margin-bottom:2px"><span style="width:7px;height:7px;border-radius:2px;background:${sc};flex-shrink:0;display:inline-block"></span>${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</span>`;}).join('');
-      const tipMore=candidates.length>8?`<div style="color:var(--text-muted);margin-top:4px">+ ${candidates.length-8} más</div>`:'';
-      const tipHtml=`<div style="font-weight:700;margin-bottom:6px;color:${stroke}">${label} (${val})</div>${tipLines}${tipMore}`;
-      const svg=`<svg width="${CX*2}" height="${CY*2}" viewBox="0 0 ${CX*2} ${CY*2}" style="display:block">
-        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#EDE8E4" stroke-width="${SW}"/>
-        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${stroke}" stroke-width="${SW}" stroke-dasharray="${dash} ${gap}" stroke-linecap="round" transform="rotate(-90 ${CX} ${CY})"/>
-        <text x="${CX}" y="${CY-6}" text-anchor="middle" font-size="22" font-weight="700" fill="${stroke}" font-family="DM Mono,monospace">${val}</text>
-        <text x="${CX}" y="${CY+14}" text-anchor="middle" font-size="9" fill="var(--text-muted)" font-family="DM Sans,sans-serif">${label}</text>
-      </svg>`;
+    const MAX_SIDE=80; // px for the largest square
+    // Count by nivel for each snapshot
+    function byNivel(arr){
+      const m={};NIVEL_LIST.forEach(nv=>m[nv]=arr.filter(d=>d.nivel===nv));return m;
+    }
+    const inicioByNivel=byNivel(activosInicialesActive);
+    const finalByNivel=byNivel(activosFinales);
+    const maxCount=Math.max(1,...NIVEL_LIST.map(nv=>Math.max((inicioByNivel[nv]||[]).length,(finalByNivel[nv]||[]).length)));
+
+    function makeNivelSquares(byNiv,label,totalCands){
       const wrap=document.createElement('div');
-      wrap.style.cssText='display:flex;flex-direction:column;align-items:center;cursor:default;';
-      wrap.innerHTML=svg;
-      wrap.addEventListener('mouseenter',e=>{
-        const tip=document.getElementById('wf-tooltip');
-        tip.innerHTML=tipHtml;tip.style.display='block';
-        tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';
+      wrap.style.cssText='flex:1;min-width:220px;';
+      const hdr=document.createElement('div');
+      hdr.style.cssText='font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;text-align:center;';
+      const tot=NIVEL_LIST.reduce((s,nv)=>s+(byNiv[nv]||[]).length,0);
+      hdr.textContent=`${label} — ${tot} activos`;
+      wrap.appendChild(hdr);
+      const grid=document.createElement('div');
+      grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;';
+      NIVEL_LIST.forEach(nv=>{
+        const cands=byNiv[nv]||[];
+        const cnt=cands.length;
+        const side=cnt>0?Math.max(20,Math.round(MAX_SIDE*Math.sqrt(cnt/maxCount))):0;
+        const nc=NIVEL_COLORS[nv]||'#888';
+        const cell=document.createElement('div');
+        cell.style.cssText='display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px;';
+        const sqWrap=document.createElement('div');
+        sqWrap.style.cssText=`width:${MAX_SIDE}px;height:${MAX_SIDE}px;display:flex;align-items:center;justify-content:center;`;
+        const sq=document.createElement('div');
+        sq.style.cssText=`width:${side}px;height:${side}px;background:${nc};border-radius:4px;opacity:0.85;cursor:${cnt>0?'pointer':'default'};transition:opacity .15s;`;
+        if(cnt>0){
+          const tipLines=cands.slice(0,10).map(d=>`<div style="padding:1px 0">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>`).join('');
+          const tipMore=cands.length>10?`<div style="color:var(--text-muted);margin-top:3px">+ ${cands.length-10} más</div>`:'';
+          const tipHtml=`<div style="font-weight:700;color:${nc};margin-bottom:5px">${nv} — ${cnt}</div>${tipLines}${tipMore}`;
+          sq.addEventListener('mouseenter',e=>{sq.style.opacity='1';const tip=document.getElementById('wf-tooltip');tip.innerHTML=tipHtml;tip.style.display='block';tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';});
+          sq.addEventListener('mousemove',e=>{const tip=document.getElementById('wf-tooltip');tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';});
+          sq.addEventListener('mouseleave',()=>{sq.style.opacity='0.85';document.getElementById('wf-tooltip').style.display='none';});
+        }
+        sqWrap.appendChild(sq);
+        const lbl=document.createElement('div');
+        lbl.style.cssText=`font-size:10px;font-weight:600;color:${nc};text-align:center;`;
+        lbl.textContent=`${nv} (${cnt})`;
+        cell.appendChild(sqWrap);cell.appendChild(lbl);
+        grid.appendChild(cell);
       });
-      wrap.addEventListener('mousemove',e=>{
-        const tip=document.getElementById('wf-tooltip');
-        tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';
-      });
-      wrap.addEventListener('mouseleave',()=>{document.getElementById('wf-tooltip').style.display='none';});
+      wrap.appendChild(grid);
       return wrap;
     }
-    const maxV=Math.max(sN,fN,1);
+
     const container=document.createElement('div');
-    container.style.cssText='display:flex;align-items:center;justify-content:center;gap:24px;padding:12px 0;flex-wrap:wrap;';
-    container.appendChild(ring(sN,maxV,'#00B880','Inicio del período',activosInicialesActive));
-    const badge=document.createElement('div');
-    badge.style.cssText=`font-size:18px;font-weight:700;font-family:DM Mono,monospace;color:${deltaColor};text-align:center;min-width:52px;`;
-    badge.innerHTML=`${deltaSign}${delta}<div style="font-size:10px;font-weight:400;color:var(--text-muted);margin-top:2px">vs inicio</div>`;
-    container.appendChild(badge);
-    container.appendChild(ring(fN,maxV,'#004A43','Final del período',activosFinales));
+    container.style.cssText='display:flex;gap:0;align-items:flex-start;flex-wrap:wrap;';
+    container.appendChild(makeNivelSquares(inicioByNivel,'Inicio del período',activosInicialesActive));
+
+    const divider=document.createElement('div');
+    const delta=activosFinales.length-activosInicialesActive.length;
+    const deltaSign=delta>=0?'+':'';
+    const deltaColor=delta>=0?'#1A6B3A':'#9B2335';
+    divider.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 16px;min-width:60px;align-self:center;';
+    divider.innerHTML=`<div style="font-size:22px;color:var(--border)">→</div><div style="font-size:16px;font-weight:700;font-family:DM Mono,monospace;color:${deltaColor}">${deltaSign}${delta}</div><div style="font-size:9px;color:var(--text-muted);margin-top:2px">vs inicio</div>`;
+    container.appendChild(divider);
+    container.appendChild(makeNivelSquares(finalByNivel,'Final del período',activosFinales));
     el.appendChild(container);
   })();
 
@@ -912,6 +946,7 @@ function renderMovimientos(){
     if(descartadosInPeriod.some(x=>x.item_id===d.item_id))return false;
     if(inactivosInPeriod.some(x=>x.item_id===d.item_id))return false;
     if(ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id))return false;
+    if(contratadosInPeriod.some(x=>x.item_id===d.item_id))return false;
     const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to&&isActive(d);
   });
   newEntries.forEach(d=>{const comment=getBestComment(d);allLogEntries.push({date:d.creado_en,cand:d.nombre,type:'ingreso',detail:`Ingresó al pipeline en <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>. Fuente: ${safe(d.fuente,'—')}.${comment?` <em>${comment.slice(0,100)}${comment.length>100?'…':''}</em>`:''}`,nivel:d.nivel});});
@@ -919,9 +954,10 @@ function renderMovimientos(){
   descartadosInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'descarte',detail:`Descartado en <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
   inactivosInPeriod.forEach(d=>{allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'inactivo',detail:`Pasado a <b>Inactivo</b> en etapa ${safe(d.grupo,'—')}.`,nivel:d.nivel});});
   ofertaRechazadaInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'oferta',detail:`Oferta rechazada en etapa <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
+  contratadosInPeriod.forEach(d=>{allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'contratado',detail:`✓ Contratado en etapa <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>.`,nivel:d.nivel});});
   allLogEntries.sort((a,b)=>(toDate(b.date)||0)-(toDate(a.date)||0));
   if(!allLogEntries.length){logEl.innerHTML=emptyState('Sin actividad en el período seleccionado');return;}
-  const TC={ingreso:{bg:'#E8F5EE',c:'#1A6B3A',lbl:'INGRESO'},movimiento:{bg:'#EAF2F0',c:'#004A43',lbl:'MOVIM.'},descarte:{bg:'#FDECEA',c:'#9B2335',lbl:'DESCARTE'},inactivo:{bg:'#FEF4E5',c:'#8B5A00',lbl:'INACTIVO'},oferta:{bg:'#FCE8E8',c:'#C04040',lbl:'OF.RECH.'}};
+  const TC={ingreso:{bg:'#E8F5EE',c:'#1A6B3A',lbl:'INGRESO'},movimiento:{bg:'#EAF2F0',c:'#004A43',lbl:'MOVIM.'},descarte:{bg:'#FDECEA',c:'#9B2335',lbl:'DESCARTE'},inactivo:{bg:'#FEF4E5',c:'#8B5A00',lbl:'INACTIVO'},oferta:{bg:'#FCE8E8',c:'#C04040',lbl:'OF.RECH.'},contratado:{bg:'#D6F0E0',c:'#1A6B3A',lbl:'CONTRATADO'}};
   allLogEntries.forEach(e=>{
     const tc=TC[e.type]||TC.ingreso,nc=NIVEL_COLORS[e.nivel]||'#888';
     const row=document.createElement('div');row.className='log-entry';
@@ -946,33 +982,39 @@ function moveWFTip(e){const tip=document.getElementById('wf-tooltip');tip.style.
 function hideWFTip(){document.getElementById('wf-tooltip').style.display='none';}
 
 // ── Real waterfall using SVG ───────────────────────────────────────
-function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,fin){
+// Formula: Inicio + Nuevos − Descartados − Inactivos − OfertaRech − Contratados = Final
+function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,contratados,fin){
   const svg=document.getElementById('wf-svg');
-  const W=Math.max(360,svg.parentElement.offsetWidth||700),H=240;
+  const W=Math.max(400,svg.parentElement.offsetWidth||700),H=240;
   svg.setAttribute('width',W);svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   svg.innerHTML='';
-  const sN=inicio.length,nN=nuevos.length,dN=descartados.length,iN=inactivos.length,oN=ofertaRechazada.length,fN=fin.length;
+  const sN=inicio.length,nN=nuevos.length,dN=descartados.length,iN=inactivos.length,oN=ofertaRechazada.length,cN=contratados.length,fN=fin.length;
 
-  const maxY=Math.max(sN+nN,fN,1);
-  const pad={l:40,r:20,t:30,b:50};
+  const maxY=Math.max(sN+nN,fN,cN,1);
+  const pad={l:38,r:12,t:30,b:50};
   const chartH=H-pad.t-pad.b;
-  const cols=6,colW=Math.floor((W-pad.l-pad.r)/cols);
-  const bW=Math.min(52,Math.floor(colW*0.6));
+
+  // Main waterfall: 6 cols; then a separator gap; then 1 standalone col for Contratados
+  const mainCols=6;
+  const gapW=18; // visual separator width
+  const contColW=Math.floor((W-pad.l-pad.r-gapW)/(mainCols+1));
+  const mainColW=contColW;
+  const bW=Math.min(48,Math.floor(contColW*0.62));
   const unitH=chartH/maxY;
 
-  const bars=[
-    {lbl:'Inicio',   sub:'período',  val:sN,y0:sN,           y1:0,               color:'#004A43',isBase:true,  cands:inicio},
-    {lbl:'Nuevos',   sub:'ingresos', val:nN,y0:sN+nN,        y1:sN,              color:'#00B880',isBase:false,sign:'+',cands:nuevos},
-    {lbl:'Descart.', sub:'(−)',      val:dN,y0:sN+nN,        y1:sN+nN-dN,        color:'#D94040',isBase:false,sign:'−',cands:descartados},
-    {lbl:'Inactivos',sub:'(−)',      val:iN,y0:sN+nN-dN,     y1:sN+nN-dN-iN,     color:'#E09020',isBase:false,sign:'−',cands:inactivos},
-    {lbl:'Of.Rech.', sub:'(−)',      val:oN,y0:sN+nN-dN-iN,  y1:sN+nN-dN-iN-oN, color:'#C04040',isBase:false,sign:'−',cands:ofertaRechazada},
-    {lbl:'Activos',  sub:'al final', val:fN,y0:fN,           y1:0,               color:'#004A43',isBase:true,  cands:fin},
+  const mainBars=[
+    {lbl:'Inicio',   sub:'período',  val:sN,y0:sN,                   y1:0,                   color:'#004A43',isBase:true,  cands:inicio},
+    {lbl:'Nuevos',   sub:'ingresos', val:nN,y0:sN+nN,                 y1:sN,                  color:'#00B880',isBase:false,sign:'+',cands:nuevos},
+    {lbl:'Descart.', sub:'(−)',      val:dN,y0:sN+nN,                 y1:sN+nN-dN,            color:'#D94040',isBase:false,sign:'−',cands:descartados},
+    {lbl:'Inactivos',sub:'(−)',      val:iN,y0:sN+nN-dN,              y1:sN+nN-dN-iN,         color:'#E09020',isBase:false,sign:'−',cands:inactivos},
+    {lbl:'Of.Rech.', sub:'(−)',      val:oN,y0:sN+nN-dN-iN,           y1:sN+nN-dN-iN-oN,     color:'#C04040',isBase:false,sign:'−',cands:ofertaRechazada},
+    {lbl:'Activos',  sub:'al final', val:fN,y0:fN,                    y1:0,                   color:'#004A43',isBase:true,  cands:fin},
   ];
 
   const baseY=pad.t+chartH;
   function toSVGY(v){return baseY-v*unitH;}
 
-  // Gridlines
+  // Gridlines across full width
   const nGrids=4;
   for(let i=0;i<=nGrids;i++){
     const v=Math.round(maxY/nGrids*i);const sy=toSVGY(v);
@@ -987,43 +1029,24 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,fin){
     t.textContent=v;svg.appendChild(t);
   }
 
-  bars.forEach((b,i)=>{
-    const cx=pad.l+colW*i+colW/2;const bx=cx-bW/2;
+  function drawBar(b,cx){
+    const bx=cx-bW/2;
     const top=toSVGY(b.y0),bottom=toSVGY(b.y1);
     const barH=Math.abs(bottom-top);const barTop=Math.min(top,bottom);
-
-    // Connector from previous bar
-    if(i>0&&i<bars.length-1){
-      const prevB=bars[i-1];
-      const prevCx=pad.l+colW*(i-1)+colW/2;const prevBx=prevCx-bW/2;
-      const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-      line.setAttribute('x1',prevBx+bW);line.setAttribute('x2',bx);
-      const prevEndY=toSVGY(prevB.isBase?prevB.y0:prevB.y1);
-      line.setAttribute('y1',prevEndY);line.setAttribute('y2',prevEndY);
-      line.setAttribute('stroke','#CCC');line.setAttribute('stroke-width','1');
-      line.setAttribute('stroke-dasharray','4,3');svg.appendChild(line);
-    }
-
-    // Bar rect — with hover tooltip
     const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
     rect.setAttribute('x',bx);rect.setAttribute('y',barTop);
     rect.setAttribute('width',bW);rect.setAttribute('height',Math.max(barH,3));
     rect.setAttribute('rx','4');rect.setAttribute('fill',b.color);rect.setAttribute('opacity','0.88');
     rect.style.cursor='pointer';
-    const barData=b;
-    rect.addEventListener('mouseenter',e=>showWFTip(e,barData,barData.cands||[]));
+    rect.addEventListener('mouseenter',e=>showWFTip(e,b,b.cands||[]));
     rect.addEventListener('mousemove',moveWFTip);
     rect.addEventListener('mouseleave',hideWFTip);
     svg.appendChild(rect);
-
-    // Value label above bar
-    const valStr=(b.sign?b.sign:'')+b.val;
+    const valStr=(b.sign||'')+b.val;
     const tv=document.createElementNS('http://www.w3.org/2000/svg','text');
     tv.setAttribute('x',cx);tv.setAttribute('y',barTop-6);tv.setAttribute('text-anchor','middle');
     tv.setAttribute('font-size','11');tv.setAttribute('font-weight','700');tv.setAttribute('fill',b.color);
     tv.setAttribute('font-family','DM Mono,monospace');tv.textContent=valStr;svg.appendChild(tv);
-
-    // X label
     const tl=document.createElementNS('http://www.w3.org/2000/svg','text');
     tl.setAttribute('x',cx);tl.setAttribute('y',baseY+16);tl.setAttribute('text-anchor','middle');
     tl.setAttribute('font-size','10');tl.setAttribute('fill','#4A6462');tl.setAttribute('font-family','DM Sans,sans-serif');
@@ -1032,11 +1055,58 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,fin){
     ts.setAttribute('x',cx);ts.setAttribute('y',baseY+28);ts.setAttribute('text-anchor','middle');
     ts.setAttribute('font-size','9');ts.setAttribute('fill','#8AA8A5');ts.setAttribute('font-family','DM Sans,sans-serif');
     ts.textContent=b.sub;svg.appendChild(ts);
+    return {bx,bW,top,bottom,barTop,barH};
+  }
+
+  // Draw main waterfall bars with connectors
+  mainBars.forEach((b,i)=>{
+    const cx=pad.l+mainColW*i+mainColW/2;
+    if(i>0&&i<mainBars.length-1){
+      const prevB=mainBars[i-1];
+      const prevCx=pad.l+mainColW*(i-1)+mainColW/2;const prevBx=prevCx-bW/2;
+      const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+      ln.setAttribute('x1',prevBx+bW);ln.setAttribute('x2',cx-bW/2);
+      const prevEndY=toSVGY(prevB.isBase?prevB.y0:prevB.y1);
+      ln.setAttribute('y1',prevEndY);ln.setAttribute('y2',prevEndY);
+      ln.setAttribute('stroke','#CCC');ln.setAttribute('stroke-width','1');
+      ln.setAttribute('stroke-dasharray','4,3');svg.appendChild(ln);
+    }
+    drawBar(b,cx);
   });
+
+  // Vertical separator between main waterfall and Contratados
+  const sepX=pad.l+mainColW*mainCols+gapW/2;
+  const sepLine=document.createElementNS('http://www.w3.org/2000/svg','line');
+  sepLine.setAttribute('x1',sepX);sepLine.setAttribute('x2',sepX);
+  sepLine.setAttribute('y1',pad.t);sepLine.setAttribute('y2',baseY);
+  sepLine.setAttribute('stroke','#D4E8E5');sepLine.setAttribute('stroke-width','1.5');
+  sepLine.setAttribute('stroke-dasharray','5,4');svg.appendChild(sepLine);
+
+  // Standalone Contratados bar (independent, starts from 0)
+  const contCX=pad.l+mainColW*mainCols+gapW+contColW/2;
+  const contBar={lbl:'Contrat.',sub:'período',val:cN,y0:cN,y1:0,color:'#1A6B3A',isBase:true,cands:contratados,sign:''};
+  drawBar(contBar,contCX);
+
+  // "Contratados" label above separator
+  const sepLabel=document.createElementNS('http://www.w3.org/2000/svg','text');
+  sepLabel.setAttribute('x',contCX);sepLabel.setAttribute('y',pad.t-10);sepLabel.setAttribute('text-anchor','middle');
+  sepLabel.setAttribute('font-size','8');sepLabel.setAttribute('fill','#8AA8A5');sepLabel.setAttribute('font-family','DM Sans,sans-serif');
+  sepLabel.textContent='independiente';svg.appendChild(sepLabel);
+
+  // Diff annotation: expected final vs actual final
+  const expectedFinal=sN+nN-dN-iN-oN-cN;
+  const diff=fN-expectedFinal;
+  if(diff!==0){
+    const nt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    const cx5=pad.l+mainColW*5+mainColW/2;
+    nt.setAttribute('x',cx5);nt.setAttribute('y',pad.t-10);nt.setAttribute('text-anchor','middle');
+    nt.setAttribute('font-size','8.5');nt.setAttribute('fill',diff>0?'#D94040':'#E09020');nt.setAttribute('font-family','DM Mono,monospace');
+    nt.textContent=`Δ${diff>0?'+':''}${diff}`;svg.appendChild(nt);
+  }
 
   // Legend
   const lgEl=document.getElementById('wf-legend');lgEl.innerHTML='';
-  [{c:'#004A43',l:'Estado del pipeline'},{c:'#00B880',l:'Nuevos ingresos'},{c:'#D94040',l:'Descartados'},{c:'#E09020',l:'Inactivos'},{c:'#C04040',l:'Oferta Rechazada'}].forEach(x=>{
+  [{c:'#004A43',l:'Estado del pipeline'},{c:'#00B880',l:'Nuevos ingresos'},{c:'#D94040',l:'Descartados'},{c:'#E09020',l:'Inactivos'},{c:'#C04040',l:'Oferta Rechazada'},{c:'#1A6B3A',l:'Contratados (independiente)'}].forEach(x=>{
     lgEl.innerHTML+=`<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${x.c};display:inline-block"></span>${x.l}</span>`;
   });
 }
