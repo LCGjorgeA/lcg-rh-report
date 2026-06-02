@@ -54,6 +54,7 @@ input[type=number]{width:80px;}
 .tag.descarte{background:#7A3FBF;}
 .tag.contratado{background:#1A6B3A;}
 .tag.inactivo{background:#8B5A00;}
+.tag.oferta{background:#C04040;}
 .tag-remove{cursor:pointer;opacity:.7;font-size:13px;line-height:1;padding:0 1px;}
 .tag-remove:hover{opacity:1;}
 .tags-input{border:none;outline:none;background:transparent;font-size:12px;font-family:'DM Sans',sans-serif;min-width:120px;flex:1;color:var(--text-primary);}
@@ -146,6 +147,12 @@ input[type=number]{width:80px;}
     </div>
 
     <div class="field-row">
+      <label class="field-label"><span class="badge-dot" style="background:#C04040;margin-right:5px;"></span>Oferta Rechazada (excluidos de activos, visibles en Movimientos)</label>
+      <div class="tags-wrap" id="tags-oferta" onclick="focusTagInput('oferta')"></div>
+      <div class="field-hint">Ej: Oferta Rechazada — se descuentan del total de activos y aparecen como categoría separada en el waterfall.</div>
+    </div>
+
+    <div class="field-row">
       <label class="field-label"><span class="badge-dot" style="background:#1A6B3A;margin-right:5px;"></span>Contratados / Proceso completado</label>
       <div class="tags-wrap" id="tags-contratado" onclick="focusTagInput('contratado')"></div>
       <div class="field-hint">Ej: Contratado, Contratados, Oferta aceptada</div>
@@ -223,8 +230,9 @@ const GITHUB_REPO  = 'lcg-rh-report';
 
 // ── DEFAULTS ───────────────────────────────────────────────────────
 const DEFAULTS = {
-  baja:       ['Descartado','Inactivo','No contactado','Archivado','No interesado','Retirado'],
+  baja:       ['Descartado','Inactivo','No contactado','Archivado','No interesado','Retirado','Oferta Rechazada'],
   descarte:   ['Descartado'],
+  oferta:     ['Oferta Rechazada'],
   contratado: ['Contratado','Contratados','Oferta aceptada'],
   inactiveDays: 14,
   daysAmber:    30,
@@ -232,7 +240,7 @@ const DEFAULTS = {
 };
 
 // ── STATE ──────────────────────────────────────────────────────────
-let tags = { baja: [], descarte: [], contratado: [] };
+let tags = { baja: [], descarte: [], oferta: [], contratado: [] };
 let dirty = false;
 
 // ── LOGIN ──────────────────────────────────────────────────────────
@@ -268,6 +276,7 @@ function doLogout() {
 if (sessionStorage.getItem('lcg_config_auth') === '1') {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  loadConfig();
 }
 
 // ── TAGS ───────────────────────────────────────────────────────────
@@ -335,9 +344,10 @@ function loadConfig() {
 
   tags.baja       = cfg.baja       || DEFAULTS.baja;
   tags.descarte   = cfg.descarte   || DEFAULTS.descarte;
+  tags.oferta     = cfg.oferta     || DEFAULTS.oferta;
   tags.contratado = cfg.contratado || DEFAULTS.contratado;
 
-  ['baja','descarte','contratado'].forEach(renderTags);
+  ['baja','descarte','oferta','contratado'].forEach(renderTags);
 
   document.getElementById('cfg-inactive-days').value = cfg.inactiveDays ?? DEFAULTS.inactiveDays;
   document.getElementById('cfg-days-amber').value    = cfg.daysAmber    ?? DEFAULTS.daysAmber;
@@ -355,6 +365,7 @@ function saveConfig() {
   const cfg = {
     baja:         tags.baja,
     descarte:     tags.descarte,
+    oferta:       tags.oferta,
     contratado:   tags.contratado,
     inactiveDays: parseInt(document.getElementById('cfg-inactive-days').value) || 14,
     daysAmber:    parseInt(document.getElementById('cfg-days-amber').value)    || 30,
