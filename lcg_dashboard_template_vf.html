@@ -261,9 +261,35 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
 .refresh-btn:hover{background:var(--lcg-mid);color:#fff;}
 .refresh-btn.loading{opacity:.6;cursor:default;pointer-events:none;}
 .refresh-status{font-size:10px;color:var(--text-muted);margin-top:4px;font-family:'DM Mono',monospace;text-align:right;}
+
+/* PAT MODAL */
+.pat-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:10000;}
+.pat-modal{background:#fff;border-radius:16px;padding:1.75rem 2rem;width:min(420px,90vw);box-shadow:0 20px 60px rgba(0,0,0,.25);}
+.pat-modal h3{font-size:15px;font-weight:600;color:var(--lcg-dark);margin-bottom:.5rem;}
+.pat-modal p{font-size:12px;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5;}
+.pat-modal input{width:100%;font-size:12px;font-family:"DM Mono",monospace;padding:8px 12px;border:1px solid var(--border);border-radius:8px;outline:none;margin-bottom:.75rem;}
+.pat-modal input:focus{border-color:var(--lcg-mid);}
+.pat-modal-btns{display:flex;gap:8px;justify-content:flex-end;}
+.pat-modal-btns button{font-size:12px;font-family:"DM Sans",sans-serif;font-weight:600;padding:7px 18px;border-radius:20px;border:none;cursor:pointer;}
+.pat-btn-save{background:var(--lcg-mid);color:#fff;}
+.pat-btn-save:hover{background:var(--lcg-dark);}
+.pat-btn-cancel{background:#F0EBE6;color:var(--text-secondary);}
+.pat-modal-note{font-size:10px;color:var(--text-muted);margin-top:.75rem;line-height:1.5;}
 </style>
 </head>
 <body>
+<div class="pat-overlay" id="pat-overlay">
+  <div class="pat-modal">
+    <h3>Token para actualizar el reporte</h3>
+    <p>Ingresa tu GitHub Personal Access Token (Classic) con scope <strong>workflow</strong>. Se guarda solo en tu navegador, nunca en el servidor.</p>
+    <input type="password" id="pat-input" placeholder="ghp_..." autocomplete="off" />
+    <div class="pat-modal-btns">
+      <button class="pat-btn-cancel" id="pat-cancel-btn">Cancelar</button>
+      <button class="pat-btn-save" id="pat-save-btn">Guardar y actualizar</button>
+    </div>
+    <div class="pat-modal-note">El token se almacena en localStorage de tu navegador. Para borrarlo, abre la consola y ejecuta: <code>localStorage.removeItem('lcg_refresh_pat')</code></div>
+  </div>
+</div>
 <div class="page">
 <div class="header">
   <div>
@@ -273,8 +299,8 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
   <div style="text-align:right">
     <div class="header-date" id="gen-date"></div>
     <div style="font-size:11px;color:var(--text-secondary);margin-top:3px">Tablero: Candidatos &middot; Monday.com</div>
-    <button class="refresh-btn" id="refresh-btn" onclick="triggerRefresh()">&#8635; Actualizar reporte</button>
-    <div class="refresh-status" id="refresh-status"></div>
+    <button class="refresh-btn" id="refresh-btn" onclick="window.open('https://github.com/LCGjorgeA/lcg-rh-report/actions/workflows/refresh.yml','_blank')">&#8635; Actualizar reporte</button>
+    
   </div>
 </div>
 
@@ -1458,13 +1484,34 @@ if(document.readyState==='loading'){
 }
 
 function triggerRefresh(){
-  var pat   = typeof GITHUB_PAT!=='undefined'   ? GITHUB_PAT   : '';
-  var owner = typeof GITHUB_OWNER!=='undefined' ? GITHUB_OWNER : '';
-  var repo  = typeof GITHUB_REPO!=='undefined'  ? GITHUB_REPO  : '';
+  var owner = typeof GITHUB_OWNER!=='undefined' ? GITHUB_OWNER : 'LCGjorgeA';
+  var repo  = typeof GITHUB_REPO!=='undefined'  ? GITHUB_REPO  : 'lcg-rh-report';
+  // Read PAT from localStorage (never from the HTML source)
+  var pat = localStorage.getItem('lcg_refresh_pat') || '';
   if(!pat){
-    document.getElementById('refresh-status').textContent='Sin PAT configurado.';
+    showPatModal(owner, repo);
     return;
   }
+  doRefresh(pat, owner, repo);
+}
+
+function showPatModal(owner, repo){
+  var overlay = document.getElementById('pat-overlay');
+  overlay.style.display = 'flex';
+  document.getElementById('pat-input').value = '';
+  document.getElementById('pat-save-btn').onclick = function(){
+    var val = document.getElementById('pat-input').value.trim();
+    if(!val){ return; }
+    localStorage.setItem('lcg_refresh_pat', val);
+    overlay.style.display = 'none';
+    doRefresh(val, owner, repo);
+  };
+  document.getElementById('pat-cancel-btn').onclick = function(){
+    overlay.style.display = 'none';
+  };
+}
+
+function doRefresh(pat, owner, repo){
   var btn = document.getElementById('refresh-btn');
   var st  = document.getElementById('refresh-status');
   btn.classList.add('loading');
@@ -1479,6 +1526,10 @@ function triggerRefresh(){
       st.textContent='Reporte en proceso, regresa en ~2 min.';
       btn.textContent='✓ En proceso';
       setTimeout(function(){btn.classList.remove('loading');btn.innerHTML='&#8635; Actualizar reporte';},120000);
+    } else if(r.status===401||r.status===403){
+      // Bad token — clear it so user is prompted again
+      localStorage.removeItem('lcg_refresh_pat');
+      return r.text().then(function(t){throw new Error(r.status+': token invalido, intenta de nuevo.');});
     } else {
       return r.text().then(function(t){throw new Error(r.status+': '+t);});
     }
