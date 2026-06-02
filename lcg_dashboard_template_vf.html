@@ -31,9 +31,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-prim
 
 /* KPI */
 .kpi-row{display:grid;gap:10px;margin-bottom:1.5rem;}
+.kpi-row-6{grid-template-columns:repeat(6,1fr);}
 .kpi-row-5{grid-template-columns:repeat(5,1fr);}
 .kpi-row-4{grid-template-columns:repeat(4,1fr);}
 .kpi-row-3{grid-template-columns:repeat(3,1fr);}
+@media(max-width:900px){.kpi-row-6{grid-template-columns:repeat(3,1fr);}}
 .kpi{background:#fff;border:1px solid var(--border);border-radius:12px;padding:13px 15px;position:relative;overflow:hidden;}
 .kpi.dark{background:var(--lcg-dark);}.kpi.accent{background:var(--lcg-mid);}
 .kpi.green-lite{background:#E8F5EE;border-color:#A8DFC0;}.kpi.red-lite{background:#FDECEA;border-color:#F5B8B3;}.kpi.amber-lite{background:#FEF4E5;border-color:#F5D89A;}
@@ -333,6 +335,9 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
 
 <!-- ═══ TAB 2: MOVIMIENTOS ═══ -->
 <div class="tab-panel" id="tab-movimientos">
+  <!-- Waterfall tooltip (shared) -->
+  <div id="wf-tooltip" style="position:fixed;pointer-events:none;z-index:9999;display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.12);max-width:240px;font-size:11px;line-height:1.5;"></div>
+
   <div class="date-range-wrap">
     <span style="font-size:12px;font-weight:600;color:var(--lcg-dark);flex-shrink:0">Período:</span>
     <input type="date" class="date-input" id="date-from">
@@ -346,7 +351,7 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
       <button class="date-shortcut" id="btn-mes" onclick="setDateRange('month',this)">Este mes</button>
     </div>
   </div>
-  <div class="kpi-row kpi-row-5" id="kpi-mov"></div>
+  <div class="kpi-row kpi-row-6" id="kpi-mov"></div>
 
   <div class="section-label">Movimiento neto — waterfall</div>
   <div class="card">
@@ -355,23 +360,17 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
     <div id="wf-legend" style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;font-size:11px;color:var(--text-secondary);border-top:1px solid var(--border);padding-top:10px;"></div>
   </div>
 
-  <div class="section-label">Log de ingresos y movimientos del período</div>
-  <div class="card" id="entry-log-card"><div id="entry-log-list"></div></div>
-
   <div class="section-label">Movimientos entre etapas</div>
   <div class="card"><div id="movements-flow"></div></div>
+
+  <div class="section-label">Activos — inicio vs final del período</div>
+  <div class="card" id="activos-visual-card"><div id="activos-visual"></div></div>
 
   <div class="section-label">Descartados en el período</div>
   <div class="card" id="desc-period-card"><div id="desc-period-list"></div></div>
 
-  <div class="grid2">
-    <div class="card" style="margin-bottom:0"><div class="card-title">Activos al inicio del período</div><div id="mov-inicio-list"></div></div>
-    <div class="card" style="margin-bottom:0"><div class="card-title">Activos al final del período</div><div id="mov-fin-list"></div></div>
-  </div>
-  <div style="margin-bottom:1.5rem"></div>
-
-  <div class="section-label">Log de actividad — más reciente primero</div>
-  <div class="card"><div id="activity-log"></div></div>
+  <div class="section-label">Log de actividad completo — más reciente primero</div>
+  <div class="card"><div id="merged-activity-log"></div></div>
 </div>
 
 <!-- ═══ TAB 3: DESCARTADOS ═══ -->
@@ -580,12 +579,16 @@ function stageAbr(g){if(!g)return'—';const k=Object.keys(STAGE_ABR).find(s=>g.
 function stageIdx(g){return STAGES.findIndex(s=>g&&g.includes(s));}
 function nivelCls(n){const m={Alto:'pill-alto',Sr:'pill-sr',Jr:'pill-jr',Bajo:'pill-bajo'};return'pill '+(m[n]||'pill-jr');}
 function scoreClass(s){if(s==null)return'';const n=parseFloat(s);if(isNaN(n))return'';return n<75?'score-low':n<88?'score-mid':'score-ok';}
-function daysCls(n){if(n==null)return'days-ok';return n>30?'days-hot':n>14?'days-warn':'days-ok';}
+const _storedCfg=(()=>{try{return JSON.parse(localStorage.getItem('lcg_dashboard_config')||'{}');}catch(e){return{};}})();
+const _DEFAULTS_BAJA=['Descartado','Inactivo','Contratado','Contratados','Oferta Rechazada'];
+const ACTIVE_EXCL=(_storedCfg.baja&&_storedCfg.baja.length)?_storedCfg.baja:_DEFAULTS_BAJA;
+const OFERTA_STATUSES=(_storedCfg.oferta&&_storedCfg.oferta.length)?_storedCfg.oferta:['Oferta Rechazada'];
+function isActive(d){return!ACTIVE_EXCL.includes(d.estatus);}
+function daysCls(n){const amber=_storedCfg.daysAmber||30;const red=_storedCfg.daysRed||60;if(n==null)return'days-ok';return n>red?'days-hot':n>amber?'days-warn':'days-ok';}
 function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;}
 function safe(v,fallback='—'){if(v==null||v===''||v==='undefined'||v==='null')return fallback;return String(v);}
 function emptyState(msg){return`<div class="empty-state">📭 ${msg||'Sin datos'}</div>`;}
-const ACTIVE_EXCL=['Descartado','Inactivo','Contratado','Contratados'];
-function isActive(d){return!ACTIVE_EXCL.includes(d.estatus);}
+
 
 function buildBars(id,data,max,colorFn){
   const el=document.getElementById(id);if(!el)return;
@@ -754,28 +757,30 @@ function renderMovimientos(){
   const allNonHired=pipeData.filter(d=>!['Contratado','Contratados'].includes(d.estatus));
   const activosInicialesActive=allNonHired.filter(d=>{
     const cr=toDate(d.creado_en);if(!cr||cr>from)return false;
-    if(d.estatus==='Descartado'||d.estatus==='Inactivo'){const upd=toDate(d.actualizado);if(upd&&upd<from)return false;}
+    if(ACTIVE_EXCL.includes(d.estatus)){const upd=toDate(d.actualizado);if(upd&&upd<from)return false;}
     return isActive(d);
   });
   const newEntries=pipeData.filter(d=>{const cr=toDate(d.creado_en);return cr&&cr>=from&&cr<=to;});
   const descartadosInPeriod=pipeData.filter(d=>{if(d.estatus!=='Descartado')return false;const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to;});
   const inactivosInPeriod=pipeData.filter(d=>{if(d.estatus!=='Inactivo')return false;const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to;});
+  const ofertaRechazadaInPeriod=pipeData.filter(d=>{if(!OFERTA_STATUSES.includes(d.estatus))return false;const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to;});
   const activosFinales=pipeData.filter(d=>{const cr=toDate(d.creado_en);return cr&&cr<=to&&isActive(d);});
 
-  // KPIs
+  // ── KPIs (6 cards) ───────────────────────────────────────────────
   const kpiEl=document.getElementById('kpi-mov');kpiEl.innerHTML='';
   [{label:'Activos al inicio',val:activosInicialesActive.length,sub:fromVal,dark:true},
    {label:'Nuevos ingresos',val:newEntries.length,sub:'En el período',cls:'green-lite'},
    {label:'Descartados',val:descartadosInPeriod.length,sub:'Movidos a descartado',cls:'red-lite'},
+   {label:'Oferta Rechazada',val:ofertaRechazadaInPeriod.length,sub:'Descuentan de activos',cls:'red-lite'},
    {label:'Pasados a inactivo',val:inactivosInPeriod.length,sub:'Sin actividad',cls:'amber-lite'},
-   {label:'Activos al final',val:activosFinales.length,sub:toVal},
+   {label:'Activos al final',val:activosFinales.length,sub:toVal,dark:true},
   ].forEach(k=>{kpiEl.innerHTML+=`<div class="kpi ${k.dark?'dark':k.cls||''}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${(!k.dark&&!k.cls)?'<div class="kpi-bar"></div>':''}</div>`;});
 
-  // Nivel filter buttons
+  // ── Nivel filter buttons ──────────────────────────────────────────
   const wfFilters=document.getElementById('wf-nivel-filters');wfFilters.innerHTML='';
   _movNivelFilter.clear();
   const allBtn=document.createElement('button');allBtn.className='filter-btn on';allBtn.textContent='Todos los niveles';
-  allBtn.onclick=()=>{_movNivelFilter.clear();wfFilters.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allBtn.classList.add('on');drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,activosFinales);};
+  allBtn.onclick=()=>{_movNivelFilter.clear();wfFilters.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allBtn.classList.add('on');drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,activosFinales);};
   wfFilters.appendChild(allBtn);
   NIVEL_LIST.forEach(nv=>{
     const btn=document.createElement('button');btn.className='filter-btn';btn.textContent=nv;
@@ -785,59 +790,37 @@ function renderMovimientos(){
       else{_movNivelFilter.add(nv);btn.classList.add('on');}
       allBtn.classList.toggle('on',_movNivelFilter.size===0);
       const f=s=>_movNivelFilter.size===0?s:s.filter(d=>_movNivelFilter.has(d.nivel));
-      drawWaterfall(f(activosInicialesActive),f(newEntries),f(descartadosInPeriod),f(inactivosInPeriod),f(activosFinales));
+      drawWaterfall(f(activosInicialesActive),f(newEntries),f(descartadosInPeriod),f(inactivosInPeriod),f(ofertaRechazadaInPeriod),f(activosFinales));
     };
     wfFilters.appendChild(btn);
   });
 
-  drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,activosFinales);
+  drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,activosFinales);
 
-  // ── Entry log: new entries + stage movements ───────────────────
-  const elEl=document.getElementById('entry-log-list');elEl.innerHTML='';
-  const logEntriesNew=[];
-  newEntries.forEach(d=>{
-    const comment=getBestComment(d);
-    logEntriesNew.push({date:d.creado_en,cand:d,type:'ingreso',detail:`Ingresó en <b>${safe(d.grupo,'—')}</b>`,fuente:safe(d.fuente,'—'),nivel:d.nivel});
-  });
-  // intra-stage movers (non-new, non-discarded updates in period)
-  const stageMovers=pipeData.filter(d=>{
-    if(newEntries.some(x=>x.item_id===d.item_id))return false;
-    if(descartadosInPeriod.some(x=>x.item_id===d.item_id))return false;
-    if(inactivosInPeriod.some(x=>x.item_id===d.item_id))return false;
-    const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to&&isActive(d);
-  });
-  stageMovers.forEach(d=>{
-    logEntriesNew.push({date:d.actualizado,cand:d,type:'movimiento',detail:`Actualizado en <b>${safe(d.grupo,'—')}</b>`,nivel:d.nivel});
-  });
-  logEntriesNew.sort((a,b)=>(toDate(b.date)||0)-(toDate(a.date)||0));
-  if(!logEntriesNew.length){elEl.innerHTML=emptyState('Sin ingresos o movimientos en el período');}
-  else{
-    const TCe={ingreso:{bg:'#E8F5EE',c:'#1A6B3A',lbl:'INGRESO'},movimiento:{bg:'#EAF2F0',c:'#004A43',lbl:'MOVIM.'}};
-    logEntriesNew.slice(0,40).forEach(e=>{
-      const d=e.cand;const nc=NIVEL_COLORS[d.nivel]||'#888';const tc=TCe[e.type]||TCe.ingreso;
-      const row=document.createElement('div');row.className='log-entry';
-      row.innerHTML=`<div class="log-date">${fmtShort(e.date)}</div>
-        <div class="log-cand"><span style="border-left:3px solid ${nc};padding-left:5px">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</span></div>
-        <div class="log-type"><span class="log-type-badge" style="background:${tc.bg};color:${tc.c}">${tc.lbl}</span></div>
-        <div class="log-detail">${e.detail}${e.type==='ingreso'?`. Nivel: <b style="color:${nc}">${safe(d.nivel,'—')}</b>. Fuente: ${e.fuente}`:`. Nivel: <b style="color:${nc}">${safe(d.nivel,'—')}</b>`}</div>`;
-      elEl.appendChild(row);
-    });
-    if(logEntriesNew.length>40)elEl.innerHTML+=`<div style="font-size:11px;color:var(--text-muted);padding:8px 0">+ ${logEntriesNew.length-40} más…</div>`;
-  }
-
-  // ── Movement flow between stages ─────────────────────────────────
+  // ── Movimientos entre etapas (sorted: higher stage first, Nuevo ingreso last) ──
   const flowEl=document.getElementById('movements-flow');flowEl.innerHTML='';
   const movedSet=new Map();
-  [...newEntries,...descartadosInPeriod,...inactivosInPeriod].forEach(d=>{ if(!movedSet.has(d.item_id))movedSet.set(d.item_id,d); });
+  [...newEntries,...descartadosInPeriod,...inactivosInPeriod,...ofertaRechazadaInPeriod].forEach(d=>{if(!movedSet.has(d.item_id))movedSet.set(d.item_id,d);});
   const movedCands=[...movedSet.values()];
   if(!movedCands.length){flowEl.innerHTML=emptyState('Sin movimientos entre etapas en el período');
   }else{
-    [...movedCands].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0)).slice(0,30).forEach(d=>{
-      const isNew=newEntries.some(x=>x.item_id===d.item_id),isDesc=descartadosInPeriod.some(x=>x.item_id===d.item_id);
+    // Sort: higher stageIdx first (later pipeline stage = top), newEntries (no stage) last
+    const sorted=[...movedCands].sort((a,b)=>{
+      const aIsNew=newEntries.some(x=>x.item_id===a.item_id);
+      const bIsNew=newEntries.some(x=>x.item_id===b.item_id);
+      if(aIsNew&&!bIsNew)return 1;
+      if(!aIsNew&&bIsNew)return -1;
+      const ai=stageIdx(a.grupo)??-1,bi=stageIdx(b.grupo)??-1;
+      if(bi!==ai)return bi-ai;
+      return(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0);
+    });
+    sorted.slice(0,30).forEach(d=>{
+      const isNew=newEntries.some(x=>x.item_id===d.item_id),isDesc=descartadosInPeriod.some(x=>x.item_id===d.item_id),isOferta=ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id);
       const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
       let typeColor,fromStage,toStage;
       if(isNew){typeColor='#1A6B3A';fromStage='Nuevo ingreso';toStage=safe(d.grupo,'Pipeline');}
       else if(isDesc){typeColor='#9B2335';fromStage=safe(d.grupo,'Pipeline');toStage='Descartado';}
+      else if(isOferta){typeColor='#C04040';fromStage=safe(d.grupo,'Pipeline');toStage='Oferta Rechazada';}
       else{typeColor='#8B5A00';fromStage=safe(d.grupo,'Pipeline');toStage='Inactivo';}
       const bestCmt=getBestComment(d);
       const cmtStr=bestCmt&&bestCmt.trim().length>2?`<div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;font-style:italic">${bestCmt.slice(0,100)}${bestCmt.length>100?'…':''}</div>`:'';
@@ -854,7 +837,54 @@ function renderMovimientos(){
     if(movedCands.length>30)flowEl.innerHTML+=`<div style="font-size:11px;color:var(--text-muted);padding:8px 0">+ ${movedCands.length-30} más…</div>`;
   }
 
-  // ── Descartados log ────────────────────────────────────────────
+  // ── Activos visual: donut rings ───────────────────────────────────
+  (function renderActivosVisual(){
+    const el=document.getElementById('activos-visual');el.innerHTML='';
+    const sN=activosInicialesActive.length,fN=activosFinales.length;
+    const delta=fN-sN;const deltaSign=delta>=0?'+':'';
+    const deltaColor=delta>=0?'#1A6B3A':'#9B2335';
+    const R=54,CX=70,CY=70,SW=10;
+    const circ=2*Math.PI*R;
+    function ring(val,max,stroke,label,candidates){
+      const pct=max>0?Math.min(val/max,1):0;
+      const dash=pct*circ;const gap=circ-dash;
+      const tipLines=candidates.slice(0,8).map(d=>{const sc=stageColor(d.grupo);return`<span style="display:flex;align-items:center;gap:5px;margin-bottom:2px"><span style="width:7px;height:7px;border-radius:2px;background:${sc};flex-shrink:0;display:inline-block"></span>${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</span>`;}).join('');
+      const tipMore=candidates.length>8?`<div style="color:var(--text-muted);margin-top:4px">+ ${candidates.length-8} más</div>`:'';
+      const tipHtml=`<div style="font-weight:700;margin-bottom:6px;color:${stroke}">${label} (${val})</div>${tipLines}${tipMore}`;
+      const svg=`<svg width="${CX*2}" height="${CY*2}" viewBox="0 0 ${CX*2} ${CY*2}" style="display:block">
+        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#EDE8E4" stroke-width="${SW}"/>
+        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${stroke}" stroke-width="${SW}" stroke-dasharray="${dash} ${gap}" stroke-linecap="round" transform="rotate(-90 ${CX} ${CY})"/>
+        <text x="${CX}" y="${CY-6}" text-anchor="middle" font-size="22" font-weight="700" fill="${stroke}" font-family="DM Mono,monospace">${val}</text>
+        <text x="${CX}" y="${CY+14}" text-anchor="middle" font-size="9" fill="var(--text-muted)" font-family="DM Sans,sans-serif">${label}</text>
+      </svg>`;
+      const wrap=document.createElement('div');
+      wrap.style.cssText='display:flex;flex-direction:column;align-items:center;cursor:default;';
+      wrap.innerHTML=svg;
+      wrap.addEventListener('mouseenter',e=>{
+        const tip=document.getElementById('wf-tooltip');
+        tip.innerHTML=tipHtml;tip.style.display='block';
+        tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';
+      });
+      wrap.addEventListener('mousemove',e=>{
+        const tip=document.getElementById('wf-tooltip');
+        tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';
+      });
+      wrap.addEventListener('mouseleave',()=>{document.getElementById('wf-tooltip').style.display='none';});
+      return wrap;
+    }
+    const maxV=Math.max(sN,fN,1);
+    const container=document.createElement('div');
+    container.style.cssText='display:flex;align-items:center;justify-content:center;gap:24px;padding:12px 0;flex-wrap:wrap;';
+    container.appendChild(ring(sN,maxV,'#00B880','Inicio del período',activosInicialesActive));
+    const badge=document.createElement('div');
+    badge.style.cssText=`font-size:18px;font-weight:700;font-family:DM Mono,monospace;color:${deltaColor};text-align:center;min-width:52px;`;
+    badge.innerHTML=`${deltaSign}${delta}<div style="font-size:10px;font-weight:400;color:var(--text-muted);margin-top:2px">vs inicio</div>`;
+    container.appendChild(badge);
+    container.appendChild(ring(fN,maxV,'#004A43','Final del período',activosFinales));
+    el.appendChild(container);
+  })();
+
+  // ── Descartados en el período ─────────────────────────────────────
   const dEl=document.getElementById('desc-period-list');dEl.innerHTML='';
   if(!descartadosInPeriod.length){dEl.innerHTML=emptyState('No hubo descartes en este período');
   }else{
@@ -873,37 +903,26 @@ function renderMovimientos(){
     });
   }
 
-  // Inicio / Fin mini lists
-  function renderMiniList(elId,candidates){
-    const el=document.getElementById(elId);el.innerHTML='';
-    if(!candidates.length){el.innerHTML=emptyState('Sin candidatos');return;}
-    candidates.slice(0,14).forEach(d=>{
-      const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
-      el.innerHTML+=`<div class="bar-row" style="margin-bottom:6px"><div class="bar-label" style="width:auto;flex:1">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div><span class="badge badge-stage" style="background:${sc}18;color:${sc};font-size:8.5px">${stageAbr(d.grupo)}</span><span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc};margin-left:4px">${safe(d.nivel,'—')}</span></div>`;
-    });
-    if(candidates.length>14)el.innerHTML+=`<div style="font-size:11px;color:var(--text-muted);margin-top:6px">+ ${candidates.length-14} más…</div>`;
-  }
-  renderMiniList('mov-inicio-list',activosInicialesActive);
-  renderMiniList('mov-fin-list',activosFinales);
-
-  // Activity log
-  const logEl=document.getElementById('activity-log');logEl.innerHTML='';
-  const logEntries=[];
-  newEntries.forEach(d=>{
-    const comment=getBestComment(d);
-    logEntries.push({date:d.creado_en,cand:d.nombre,type:'ingreso',detail:`Ingresó al pipeline en <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>. Fuente: ${safe(d.fuente,'—')}.${comment?` <em>${comment.slice(0,100)}${comment.length>100?'…':''}</em>`:''}`,nivel:d.nivel});
+  // ── Merged activity log ───────────────────────────────────────────
+  const logEl=document.getElementById('merged-activity-log');logEl.innerHTML='';
+  const allLogEntries=[];
+  // intra-stage movers (non-new, non-discarded, non-inactive, non-oferta updates in period)
+  const stageMovers=pipeData.filter(d=>{
+    if(newEntries.some(x=>x.item_id===d.item_id))return false;
+    if(descartadosInPeriod.some(x=>x.item_id===d.item_id))return false;
+    if(inactivosInPeriod.some(x=>x.item_id===d.item_id))return false;
+    if(ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id))return false;
+    const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to&&isActive(d);
   });
-  descartadosInPeriod.forEach(d=>{
-    const razon=getBestComment(d)||'Sin comentario';
-    logEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'descarte',detail:`Descartado en <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});
-  });
-  inactivosInPeriod.forEach(d=>{
-    logEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'inactivo',detail:`Pasado a <b>Inactivo</b> en etapa ${safe(d.grupo,'—')}.`,nivel:d.nivel});
-  });
-  logEntries.sort((a,b)=>(toDate(b.date)||0)-(toDate(a.date)||0));
-  if(!logEntries.length){logEl.innerHTML=emptyState('Sin actividad en el período seleccionado');return;}
-  const TC={ingreso:{bg:'#E8F5EE',c:'#1A6B3A',lbl:'INGRESO'},descarte:{bg:'#FDECEA',c:'#9B2335',lbl:'DESCARTE'},inactivo:{bg:'#FEF4E5',c:'#8B5A00',lbl:'INACTIVO'}};
-  logEntries.forEach(e=>{
+  newEntries.forEach(d=>{const comment=getBestComment(d);allLogEntries.push({date:d.creado_en,cand:d.nombre,type:'ingreso',detail:`Ingresó al pipeline en <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>. Fuente: ${safe(d.fuente,'—')}.${comment?` <em>${comment.slice(0,100)}${comment.length>100?'…':''}</em>`:''}`,nivel:d.nivel});});
+  stageMovers.forEach(d=>{allLogEntries.push({date:d.actualizado,cand:d.nombre,type:'movimiento',detail:`Actualizado en etapa <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>.`,nivel:d.nivel});});
+  descartadosInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'descarte',detail:`Descartado en <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
+  inactivosInPeriod.forEach(d=>{allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'inactivo',detail:`Pasado a <b>Inactivo</b> en etapa ${safe(d.grupo,'—')}.`,nivel:d.nivel});});
+  ofertaRechazadaInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'oferta',detail:`Oferta rechazada en etapa <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
+  allLogEntries.sort((a,b)=>(toDate(b.date)||0)-(toDate(a.date)||0));
+  if(!allLogEntries.length){logEl.innerHTML=emptyState('Sin actividad en el período seleccionado');return;}
+  const TC={ingreso:{bg:'#E8F5EE',c:'#1A6B3A',lbl:'INGRESO'},movimiento:{bg:'#EAF2F0',c:'#004A43',lbl:'MOVIM.'},descarte:{bg:'#FDECEA',c:'#9B2335',lbl:'DESCARTE'},inactivo:{bg:'#FEF4E5',c:'#8B5A00',lbl:'INACTIVO'},oferta:{bg:'#FCE8E8',c:'#C04040',lbl:'OF.RECH.'}};
+  allLogEntries.forEach(e=>{
     const tc=TC[e.type]||TC.ingreso,nc=NIVEL_COLORS[e.nivel]||'#888';
     const row=document.createElement('div');row.className='log-entry';
     row.innerHTML=`<div class="log-date">${fmtShort(e.date)}</div>
@@ -914,38 +933,43 @@ function renderMovimientos(){
   });
 }
 
+// ── Waterfall tooltip helpers ──────────────────────────────────────
+function showWFTip(e,b,cands){
+  const tip=document.getElementById('wf-tooltip');
+  const names=cands.slice(0,6).map(d=>`<div style="padding:1px 0">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>`).join('');
+  const more=cands.length>6?`<div style="color:var(--text-muted);margin-top:3px">+ ${cands.length-6} más</div>`:'';
+  tip.innerHTML=`<div style="font-weight:700;color:${b.color};margin-bottom:5px">${b.lbl} ${b.sub} — ${(b.sign||'')+b.val}</div>${names}${more}`;
+  tip.style.display='block';
+  tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';
+}
+function moveWFTip(e){const tip=document.getElementById('wf-tooltip');tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';}
+function hideWFTip(){document.getElementById('wf-tooltip').style.display='none';}
+
 // ── Real waterfall using SVG ───────────────────────────────────────
-function drawWaterfall(inicio,nuevos,descartados,inactivos,fin){
+function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,fin){
   const svg=document.getElementById('wf-svg');
-  const W=Math.max(320,svg.parentElement.offsetWidth||700),H=240;
+  const W=Math.max(360,svg.parentElement.offsetWidth||700),H=240;
   svg.setAttribute('width',W);svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   svg.innerHTML='';
-  const sN=inicio.length,nN=nuevos.length,dN=descartados.length,iN=inactivos.length,fN=fin.length;
+  const sN=inicio.length,nN=nuevos.length,dN=descartados.length,iN=inactivos.length,oN=ofertaRechazada.length,fN=fin.length;
 
-  // Bars: [label, value, isBase, color, runningBottom]
-  // Waterfall: base1=sN, up=nN from sN, down1=dN from sN+nN, down2=iN from sN+nN-dN, base2=fN
   const maxY=Math.max(sN+nN,fN,1);
   const pad={l:40,r:20,t:30,b:50};
   const chartH=H-pad.t-pad.b;
-  const cols=5,colW=Math.floor((W-pad.l-pad.r)/cols);
-  const bW=Math.min(60,Math.floor(colW*0.6));
+  const cols=6,colW=Math.floor((W-pad.l-pad.r)/cols);
+  const bW=Math.min(52,Math.floor(colW*0.6));
   const unitH=chartH/maxY;
 
-  // running levels for true waterfall
-  // bar 0: base sN → bottom at chart base, top at sN*unit
-  // bar 1: +nN → starts at sN*unit, goes up to (sN+nN)*unit
-  // bar 2: -dN → starts at (sN+nN)*unit, goes down dN*unit
-  // bar 3: -iN → starts at (sN+nN-dN)*unit, goes down iN*unit
-  // bar 4: base fN → bottom at chart base
   const bars=[
-    {lbl:'Inicio',sub:'período',val:sN,y0:sN,y1:0,color:'#004A43',isBase:true},
-    {lbl:'Nuevos',sub:'ingresos',val:nN,y0:sN+nN,y1:sN,color:'#00B880',isBase:false,sign:'+'},
-    {lbl:'Descartados',sub:'(−)',val:dN,y0:sN+nN,y1:sN+nN-dN,color:'#D94040',isBase:false,sign:'−'},
-    {lbl:'Inactivos',sub:'(−)',val:iN,y0:sN+nN-dN,y1:sN+nN-dN-iN,color:'#E09020',isBase:false,sign:'−'},
-    {lbl:'Activos',sub:'al final',val:fN,y0:fN,y1:0,color:'#004A43',isBase:true},
+    {lbl:'Inicio',   sub:'período',  val:sN,y0:sN,           y1:0,               color:'#004A43',isBase:true,  cands:inicio},
+    {lbl:'Nuevos',   sub:'ingresos', val:nN,y0:sN+nN,        y1:sN,              color:'#00B880',isBase:false,sign:'+',cands:nuevos},
+    {lbl:'Descart.', sub:'(−)',      val:dN,y0:sN+nN,        y1:sN+nN-dN,        color:'#D94040',isBase:false,sign:'−',cands:descartados},
+    {lbl:'Inactivos',sub:'(−)',      val:iN,y0:sN+nN-dN,     y1:sN+nN-dN-iN,     color:'#E09020',isBase:false,sign:'−',cands:inactivos},
+    {lbl:'Of.Rech.', sub:'(−)',      val:oN,y0:sN+nN-dN-iN,  y1:sN+nN-dN-iN-oN, color:'#C04040',isBase:false,sign:'−',cands:ofertaRechazada},
+    {lbl:'Activos',  sub:'al final', val:fN,y0:fN,           y1:0,               color:'#004A43',isBase:true,  cands:fin},
   ];
 
-  const baseY=pad.t+chartH; // bottom of chart
+  const baseY=pad.t+chartH;
   function toSVGY(v){return baseY-v*unitH;}
 
   // Gridlines
@@ -968,26 +992,28 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,fin){
     const top=toSVGY(b.y0),bottom=toSVGY(b.y1);
     const barH=Math.abs(bottom-top);const barTop=Math.min(top,bottom);
 
-    // Connector from previous bar (dashed horizontal)
-    if(i>0&&i<4){
+    // Connector from previous bar
+    if(i>0&&i<bars.length-1){
       const prevB=bars[i-1];
-      // Connect: right edge of prev bar to left edge of this bar at the "start" level
-      const connectY=toSVGY(b.isBase?0:b.y1);
       const prevCx=pad.l+colW*(i-1)+colW/2;const prevBx=prevCx-bW/2;
       const line=document.createElementNS('http://www.w3.org/2000/svg','line');
       line.setAttribute('x1',prevBx+bW);line.setAttribute('x2',bx);
-      // Connect at the "end" level of previous bar
       const prevEndY=toSVGY(prevB.isBase?prevB.y0:prevB.y1);
       line.setAttribute('y1',prevEndY);line.setAttribute('y2',prevEndY);
       line.setAttribute('stroke','#CCC');line.setAttribute('stroke-width','1');
       line.setAttribute('stroke-dasharray','4,3');svg.appendChild(line);
     }
 
-    // Bar rect
+    // Bar rect — with hover tooltip
     const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
     rect.setAttribute('x',bx);rect.setAttribute('y',barTop);
     rect.setAttribute('width',bW);rect.setAttribute('height',Math.max(barH,3));
     rect.setAttribute('rx','4');rect.setAttribute('fill',b.color);rect.setAttribute('opacity','0.88');
+    rect.style.cursor='pointer';
+    const barData=b;
+    rect.addEventListener('mouseenter',e=>showWFTip(e,barData,barData.cands||[]));
+    rect.addEventListener('mousemove',moveWFTip);
+    rect.addEventListener('mouseleave',hideWFTip);
     svg.appendChild(rect);
 
     // Value label above bar
@@ -1010,7 +1036,7 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,fin){
 
   // Legend
   const lgEl=document.getElementById('wf-legend');lgEl.innerHTML='';
-  [{c:'#004A43',l:'Estado del pipeline'},{c:'#00B880',l:'Nuevos ingresos'},{c:'#D94040',l:'Descartados'},{c:'#E09020',l:'Inactivos'}].forEach(x=>{
+  [{c:'#004A43',l:'Estado del pipeline'},{c:'#00B880',l:'Nuevos ingresos'},{c:'#D94040',l:'Descartados'},{c:'#E09020',l:'Inactivos'},{c:'#C04040',l:'Oferta Rechazada'}].forEach(x=>{
     lgEl.innerHTML+=`<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${x.c};display:inline-block"></span>${x.l}</span>`;
   });
 }
