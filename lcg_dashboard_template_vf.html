@@ -840,7 +840,7 @@ function renderMovimientos(){
    {label:'Pasados a inactivo',val:inactivosInPeriod.length,sub:'Sin actividad',cls:'amber-lite'},
    {label:'Contratados',val:contratadosInPeriod.length,sub:'Contratados en período',cls:'green-lite'},
    {label:'Activos al final',val:activosFinales.length,sub:toVal,dark:true},
-   {label:'Movimientos',val:stageMovers.length,sub:'Actividad intra-etapa',cls:''},
+   {label:'Total movimientos',val:newEntries.length+stageMovers.length+descartadosInPeriod.length+inactivosInPeriod.length+ofertaRechazadaInPeriod.length+contratadosInPeriod.length,sub:'Ingresos + cambios + bajas',cls:''},
   ].forEach(k=>{kpiEl.innerHTML+=`<div class="kpi ${k.dark?'dark':k.cls||''}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${(!k.dark&&!k.cls)?'<div class="kpi-bar"></div>':''}</div>`;});
 
   // ── Nivel filter buttons ──────────────────────────────────────────
@@ -1591,8 +1591,22 @@ function renderTimeline(){
   makeLine(lineSvg,ptAct,'#004A43','',lblAct);
   makeLine(lineSvg,ptIng,'#00B880','',lblIng);
   makeLine(lineSvg,ptDesc,'#D94040','4,3',lblDesc);
-  // X labels
-  weekData.forEach((d,i)=>{if(i%Math.max(1,Math.floor(nL/8))===0){const ds=new Date(d.wk+'T12:00:00');const t=document.createElementNS('http://www.w3.org/2000/svg','text');t.setAttribute('x',lpad.l+i*stepX);t.setAttribute('y',LH-4);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','8');t.setAttribute('fill','#8AA8A5');t.setAttribute('font-family','DM Mono,monospace');t.textContent=`${ds.getDate()}/${ds.getMonth()+1}`;lineSvg.appendChild(t);}});
+  // X labels — show every week for small datasets, every 2nd for larger
+  const xLblStep=nL<=16?1:nL<=32?2:Math.floor(nL/12);
+  weekData.forEach((d,i)=>{
+    if(i%xLblStep!==0)return;
+    const ds=new Date(d.wk+'T12:00:00');
+    const x=lpad.l+i*stepX;
+    // tick mark
+    const tk=document.createElementNS('http://www.w3.org/2000/svg','line');
+    tk.setAttribute('x1',x);tk.setAttribute('x2',x);tk.setAttribute('y1',lpad.t+lH);tk.setAttribute('y2',lpad.t+lH+4);
+    tk.setAttribute('stroke','#D4E8E5');tk.setAttribute('stroke-width','1');lineSvg.appendChild(tk);
+    // date label
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',x);t.setAttribute('y',LH-2);t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size','8');t.setAttribute('fill','#8AA8A5');t.setAttribute('font-family','DM Mono,monospace');
+    t.textContent=`${ds.getDate()}/${ds.getMonth()+1}`;lineSvg.appendChild(t);
+  });
 
   const lgEl3=document.getElementById('tl-line-legend');lgEl3.innerHTML='';
   [{c:'#004A43',l:'Activos acumulados'},{c:'#00B880',l:'Ingresos semanales'},{c:'#D94040',l:'Descartes semanales',dash:true}].forEach(x=>lgEl3.innerHTML+=`<div class="tl-leg-item"><div class="tl-leg-dot" style="background:${x.c};${x.dash?'background:repeating-linear-gradient(90deg,'+x.c+' 0,'+x.c+' 4px,transparent 4px,transparent 7px);':''}height:3px;width:20px;border-radius:2px"></div>${x.l}</div>`);
@@ -1832,7 +1846,7 @@ function renderTimeline(){
 // TAB 5: DETALLE
 // ═══════════════════════════════════════════════════════════
 (function(){
-  const allData=[...pipeData].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0));
+  const allData=[...pipeData].sort((a,b)=>{const da=toDate(a.creado_en),db=toDate(b.creado_en);return(db||0)-(da||0);});
   let selStatus=new Set(),selNivel=new Set(),selEtapa=new Set(),showAll=false;
 
   function makeMultiBtn(label,set,key,container,renderFn){
