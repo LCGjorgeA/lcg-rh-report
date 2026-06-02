@@ -450,6 +450,12 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
     <div class="funnel-legend" id="tl-nivel-legend" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"></div>
   </div>
 
+  <div class="section-label">Actividad semanal — ingresos, movimientos y bajas</div>
+  <div class="card">
+    <div class="tl-legend" id="tl-activity-legend"></div>
+    <div style="overflow-x:auto;margin-top:10px;"><svg id="tl-activity-svg" height="160" style="display:block;width:100%;"></svg></div>
+  </div>
+
   <div class="section-label">Movimientos semanales — ingresos, actividad y bajas</div>
   <div class="card">
     <div class="tl-legend" id="tl-mov-legend"></div>
@@ -815,7 +821,17 @@ function renderMovimientos(){
   const contratadosInPeriod=pipeData.filter(d=>{if(!CONTRATADO_STATUS.includes(d.estatus))return false;const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to;});
   const activosFinales=pipeData.filter(d=>{const cr=toDate(d.creado_en);return cr&&cr<=to&&isActive(d);});
 
-  // ── KPIs (6 cards) ───────────────────────────────────────────────
+  // ── stageMovers: intra-pipeline updates, no exits or new entries ─
+  const stageMovers=pipeData.filter(d=>{
+    if(newEntries.some(x=>x.item_id===d.item_id))return false;
+    if(descartadosInPeriod.some(x=>x.item_id===d.item_id))return false;
+    if(inactivosInPeriod.some(x=>x.item_id===d.item_id))return false;
+    if(ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id))return false;
+    if(contratadosInPeriod.some(x=>x.item_id===d.item_id))return false;
+    const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to&&isActive(d);
+  });
+
+  // ── KPIs (8 cards) ───────────────────────────────────────────────
   const kpiEl=document.getElementById('kpi-mov');kpiEl.innerHTML='';
   [{label:'Activos al inicio',val:activosInicialesActive.length,sub:fromVal,dark:true},
    {label:'Nuevos ingresos',val:newEntries.length,sub:'En el período',cls:'green-lite'},
@@ -847,17 +863,6 @@ function renderMovimientos(){
   });
 
   drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,contratadosInPeriod,activosFinales);
-
-  // ── Compute stageMovers (intra-pipeline, no exit/entry status change) ──────
-  // Defined early so it can be reused both in the flow table and the activity log
-  const stageMovers=pipeData.filter(d=>{
-    if(newEntries.some(x=>x.item_id===d.item_id))return false;
-    if(descartadosInPeriod.some(x=>x.item_id===d.item_id))return false;
-    if(inactivosInPeriod.some(x=>x.item_id===d.item_id))return false;
-    if(ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id))return false;
-    if(contratadosInPeriod.some(x=>x.item_id===d.item_id))return false;
-    const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to&&isActive(d);
-  });
 
   // ── Movimientos entre etapas ──────────────────────────────────────
   // Sort priority: 0=intra-etapa, 1=nuevo ingreso, 2=exits (bajas al final)
@@ -900,11 +905,14 @@ function renderMovimientos(){
       const cmtStr=bestCmt&&bestCmt.trim().length>2?`<div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;font-style:italic">${bestCmt.slice(0,100)}${bestCmt.length>100?'…':''}</div>`:'';
       const row=document.createElement('div');row.className='flow-row';row.style.flexWrap='wrap';row.style.rowGap='3px';
       if(isIntra){
-        // Intra-stage: no previous stage stored — show current stage + update indicator
+        // Show actual previous etapa → current etapa transition
+        const prevG=d.grupo_anterior||d.etapa_anterior||d.previous_group||null;
+        const prevColor=prevG?stageColor(prevG):'#8AA8A5';
+        const prevLabel=prevG||'Etapa anterior';
         row.innerHTML=`<div class="flow-name">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>
-          <div style="background:#004A4318;color:#004A43;font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">${safe(d.grupo,'Pipeline')}</div>
-          <div class="flow-arrow">↑</div>
-          <div style="background:#004A4318;color:#004A43;font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">Actualizado</div>
+          <div style="background:${prevColor}18;color:${prevColor};font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">${prevLabel}</div>
+          <div class="flow-arrow">→</div>
+          <div style="background:${sc}18;color:${sc};font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">${safe(d.grupo,'Pipeline')}</div>
           <span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc};margin-left:4px">${safe(d.nivel,'—')}</span>
           <div class="flow-date">${fmtShort(d.actualizado||d.creado_en)}</div>
           ${cmtStr?`<div style="width:100%;padding-left:8px">${cmtStr}</div>`:''}`;
@@ -1551,38 +1559,67 @@ function renderTimeline(){
     gl.setAttribute('stroke','#EDE8E4');gl.setAttribute('stroke-width','1');lineSvg.appendChild(gl);
   });
 
-  function makeLine(svgEl,points,color,dash){
+  function makeLine(svgEl,points,color,dash,labels){
     if(points.length<2)return;
     const pl=document.createElementNS('http://www.w3.org/2000/svg','polyline');
     pl.setAttribute('points',points.map(p=>p.join(',')).join(' '));
     pl.setAttribute('fill','none');pl.setAttribute('stroke',color);pl.setAttribute('stroke-width','2');
-    if(dash)pl.setAttribute('stroke-dasharray',dash);lineSvg.appendChild(pl);
-    points.forEach(p=>{const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',p[0]);c.setAttribute('cy',p[1]);c.setAttribute('r','3');c.setAttribute('fill',color);lineSvg.appendChild(c);});
+    if(dash)pl.setAttribute('stroke-dasharray',dash);svgEl.appendChild(pl);
+    points.forEach((p,pi)=>{
+      const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx',p[0]);c.setAttribute('cy',p[1]);c.setAttribute('r','4');c.setAttribute('fill',color);
+      c.style.cursor='default';
+      if(labels&&labels[pi]){
+        c.addEventListener('mouseenter',e=>{const t=document.getElementById('wf-tooltip');t.innerHTML=labels[pi];t.style.display='block';t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px';});
+        c.addEventListener('mousemove',moveWFTip);c.addEventListener('mouseleave',hideWFTip);
+      }
+      svgEl.appendChild(c);
+    });
   }
   const ptIng=[],ptDesc=[],ptAct=[];
+  const lblIng=[],lblDesc=[],lblAct=[];
   weekData.forEach((d,i)=>{
     const x=lpad.l+i*stepX;
     ptIng.push([x,lpad.t+lH-d.ing/maxL*lH]);
     ptDesc.push([x,lpad.t+lH-d.desc/maxL*lH]);
     ptAct.push([x,lpad.t+lH-d.active/maxL*lH]);
+    const wl=`<div style="font-weight:700;color:var(--lcg-dark);margin-bottom:5px">${fmtWeek(d.wk)}</div>`;
+    lblIng.push(wl+`<div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:#00B880;display:inline-block"></span>Ingresos: <b>${d.ing}</b></div>`);
+    lblDesc.push(wl+`<div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:#D94040;display:inline-block"></span>Descartes: <b>${d.desc}</b></div>`);
+    lblAct.push(wl+`<div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:#004A43;display:inline-block"></span>Activos acum.: <b>${d.active}</b></div>`);
   });
-  makeLine(lineSvg,ptAct,'#004A43');
-  makeLine(lineSvg,ptIng,'#00B880','');
-  makeLine(lineSvg,ptDesc,'#D94040','4,3');
+  makeLine(lineSvg,ptAct,'#004A43','',lblAct);
+  makeLine(lineSvg,ptIng,'#00B880','',lblIng);
+  makeLine(lineSvg,ptDesc,'#D94040','4,3',lblDesc);
   // X labels
   weekData.forEach((d,i)=>{if(i%Math.max(1,Math.floor(nL/8))===0){const ds=new Date(d.wk+'T12:00:00');const t=document.createElementNS('http://www.w3.org/2000/svg','text');t.setAttribute('x',lpad.l+i*stepX);t.setAttribute('y',LH-4);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','8');t.setAttribute('fill','#8AA8A5');t.setAttribute('font-family','DM Mono,monospace');t.textContent=`${ds.getDate()}/${ds.getMonth()+1}`;lineSvg.appendChild(t);}});
 
   const lgEl3=document.getElementById('tl-line-legend');lgEl3.innerHTML='';
   [{c:'#004A43',l:'Activos acumulados'},{c:'#00B880',l:'Ingresos semanales'},{c:'#D94040',l:'Descartes semanales',dash:true}].forEach(x=>lgEl3.innerHTML+=`<div class="tl-leg-item"><div class="tl-leg-dot" style="background:${x.c};${x.dash?'background:repeating-linear-gradient(90deg,'+x.c+' 0,'+x.c+' 4px,transparent 4px,transparent 7px);':''}height:3px;width:20px;border-radius:2px"></div>${x.l}</div>`);
 
-  // ── Etapa acumulada bars ─────────────────────────────────────────
+  // ── Etapa acumulada bars (split: activos vs. descartados/inactivos) ─
   const eaEl=document.getElementById('etapa-acum-bars');eaEl.innerHTML='';
   const etapaCts=[];
-  STAGES.forEach((s,i)=>{const cnt=pipeData.filter(d=>d.grupo&&d.grupo.includes(s)).length;if(cnt)etapaCts.push({label:s,value:cnt,color:STAGE_COLORS[i]});});
+  STAGES.forEach((s,i)=>{
+    const all=pipeData.filter(d=>d.grupo&&d.grupo.includes(s));
+    if(!all.length)return;
+    const activosCnt=all.filter(isActive).length;
+    const baCnt=all.length-activosCnt;
+    etapaCts.push({label:s,value:all.length,activosCnt,baCnt,color:STAGE_COLORS[i]});
+  });
   const maxEa=Math.max(...etapaCts.map(e=>e.value),1);
   etapaCts.sort((a,b)=>b.value-a.value).forEach(e=>{
     const pct=Math.round(e.value/maxEa*100);
-    eaEl.innerHTML+=`<div class="bar-row"><div class="bar-label" title="${e.label}">${e.label}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${e.color}"></div></div><div class="bar-count">${e.value}</div></div>`;
+    const activoPct=Math.round(e.activosCnt/e.value*100);
+    const baPct=100-activoPct;
+    eaEl.innerHTML+=`<div class="bar-row" title="${e.activosCnt} activos · ${e.baCnt} inactivos/descartados">
+      <div class="bar-label" style="font-size:10.5px" title="${e.label}">${e.label}</div>
+      <div class="bar-track" style="position:relative;display:flex;overflow:hidden;background:#F0EBE6;border-radius:4px;height:8px;flex:1">
+        <div style="width:${pct*activoPct/100}%;height:100%;background:${e.color};border-radius:4px 0 0 4px"></div>
+        ${e.baCnt>0?`<div style="width:${pct*baPct/100}%;height:100%;background:${e.color};opacity:0.22"></div>`:''}
+      </div>
+      <div class="bar-count">${e.value}<span style="font-size:9px;color:var(--text-muted);font-weight:400;margin-left:3px">(${e.activosCnt}✓)</span></div>
+    </div>`;
   });
 
   // ── Etapa × Nivel bars for active pipeline ──────────────────────
@@ -1622,6 +1659,80 @@ function renderTimeline(){
   });
   const lgEl4=document.getElementById('tl-nivel-legend');lgEl4.innerHTML='';
   NIVEL_LIST.forEach(nv=>lgEl4.innerHTML+=`<div class="funnel-leg-item"><div class="funnel-leg-dot" style="background:${NIVEL_COLORS[nv]}"></div>${nv}</div>`);
+
+  // ── Activity chart: ingresos / movimientos / bajas por semana ────
+  (function(){
+    // Build weekly movement counts
+    const byWkAct={};
+    weeks.forEach(wk=>{byWkAct[wk]={ing:byWeekAll[wk].total,mov:0,baja:0};});
+    const bajaSet=new Set([...ACTIVE_EXCL,'Contratado','Contratados']);
+    pipeData.forEach(d=>{
+      const wk=getWeekKey(d.actualizado);if(!wk||!byWkAct[wk])return;
+      const entryWk=getWeekKey(d.creado_en);
+      if(bajaSet.has(d.estatus)){byWkAct[wk].baja++;}
+      else if(wk!==entryWk){byWkAct[wk].mov++;}
+    });
+    const actSvg=document.getElementById('tl-activity-svg');if(!actSvg)return;
+    const AW=Math.max(300,actSvg.parentElement.offsetWidth||800),AH=160;
+    actSvg.setAttribute('width',AW);actSvg.setAttribute('viewBox',`0 0 ${AW} ${AH}`);
+    actSvg.innerHTML='';
+    const apad={l:36,r:10,t:14,b:28};const acH=AH-apad.t-apad.b;
+    const nWA=weeks.length;const acW=Math.max(6,Math.floor((AW-apad.l-apad.r)/nWA));
+    const abW=Math.max(3,Math.floor(acW*0.75));
+    const maxA=Math.max(...weeks.map(wk=>{const d=byWkAct[wk];return(d.ing||0)+(d.mov||0)+(d.baja||0);}),1);
+    // Gridlines
+    [0,Math.round(maxA/2),maxA].forEach(v=>{
+      const sy=apad.t+acH-v/maxA*acH;
+      const gl=document.createElementNS('http://www.w3.org/2000/svg','line');
+      gl.setAttribute('x1',apad.l);gl.setAttribute('x2',AW-apad.r);gl.setAttribute('y1',sy);gl.setAttribute('y2',sy);
+      gl.setAttribute('stroke','#EDE8E4');gl.setAttribute('stroke-width','1');actSvg.appendChild(gl);
+      const gt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      gt.setAttribute('x',apad.l-3);gt.setAttribute('y',sy+4);gt.setAttribute('text-anchor','end');
+      gt.setAttribute('font-size','8');gt.setAttribute('fill','#8AA8A5');gt.setAttribute('font-family','DM Mono,monospace');
+      gt.textContent=v;actSvg.appendChild(gt);
+    });
+    weeks.forEach((wk,i)=>{
+      const d=byWkAct[wk]||{ing:0,mov:0,baja:0};
+      const x=apad.l+i*acW+Math.floor((acW-abW)/2);
+      const ingH=Math.round(d.ing/maxA*acH),movH=Math.round(d.mov/maxA*acH),bajaH=Math.round(d.baja/maxA*acH);
+      const totalH=ingH+movH+bajaH;
+      let yOff=apad.t+acH;
+      [[ingH,'#00B880'],[movH,'#004A43'],[bajaH,'#D94040']].forEach(([h,col])=>{
+        if(!h)return;yOff-=h;
+        const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        r.setAttribute('x',x);r.setAttribute('y',yOff);r.setAttribute('width',abW);r.setAttribute('height',h);
+        r.setAttribute('fill',col);r.setAttribute('opacity','0.85');actSvg.appendChild(r);
+      });
+      if(totalH>0){
+        const hr=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        hr.setAttribute('x',x);hr.setAttribute('y',apad.t+acH-totalH);hr.setAttribute('width',abW);hr.setAttribute('height',totalH);
+        hr.setAttribute('fill','transparent');hr.style.cursor='default';
+        hr.addEventListener('mouseenter',e=>{
+          const tip=document.getElementById('wf-tooltip');
+          tip.innerHTML=`<div style="font-weight:700;color:var(--lcg-dark);margin-bottom:5px">${fmtWeek(wk)}</div>
+            <div style="display:flex;align-items:center;gap:6px;padding:2px 0"><span style="width:9px;height:9px;border-radius:2px;background:#00B880;display:inline-block"></span>Ingresos pipeline: <b>${d.ing}</b></div>
+            <div style="display:flex;align-items:center;gap:6px;padding:2px 0"><span style="width:9px;height:9px;border-radius:2px;background:#004A43;display:inline-block"></span>Movimientos: <b>${d.mov}</b></div>
+            <div style="display:flex;align-items:center;gap:6px;padding:2px 0"><span style="width:9px;height:9px;border-radius:2px;background:#D94040;display:inline-block"></span>Bajas: <b>${d.baja}</b></div>
+            <div style="color:var(--text-muted);margin-top:4px;font-size:10px">Total: <b>${d.ing+d.mov+d.baja}</b></div>`;
+          tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';
+        });
+        hr.addEventListener('mousemove',moveWFTip);hr.addEventListener('mouseleave',hideWFTip);
+        actSvg.appendChild(hr);
+      }
+      if(i%Math.max(1,Math.floor(nWA/12))===0){
+        const ds=new Date(wk+'T12:00:00');
+        const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+        t.setAttribute('x',x+abW/2);t.setAttribute('y',AH-4);t.setAttribute('text-anchor','middle');
+        t.setAttribute('font-size','8');t.setAttribute('fill','#8AA8A5');t.setAttribute('font-family','DM Mono,monospace');
+        t.textContent=`${ds.getDate()}/${ds.getMonth()+1}`;actSvg.appendChild(t);
+      }
+    });
+    const lgAct=document.getElementById('tl-activity-legend');if(lgAct){lgAct.innerHTML='';
+      [{c:'#00B880',l:'Ingresos pipeline'},{c:'#004A43',l:'Movimientos'},{c:'#D94040',l:'Bajas'}].forEach(x=>{
+        lgAct.innerHTML+=`<div class="tl-leg-item"><div class="tl-leg-dot" style="background:${x.c};height:10px;width:10px;border-radius:2px"></div>${x.l}</div>`;
+      });
+    }
+  })();
 
   // ── Weekly list — newest first ───────────────────────────────────
   const wlEl=document.getElementById('tl-weekly-list');wlEl.innerHTML='';
