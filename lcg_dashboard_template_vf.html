@@ -706,26 +706,44 @@ window.addEventListener('resize',()=>{
   const fS=Object.entries(fCts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,v])=>({label:l,value:v}));
   buildBars('fuente-bars',fS,Math.max(...fS.map(x=>x.value),1),()=>'#00B880');
 
-  // Weekly chips
+  // Weekly KPI table (collapsible rows)
   const byWeek={};activos.forEach(d=>{const wk=getWeekKey(d.creado_en);if(!wk)return;if(!byWeek[wk])byWeek[wk]=[];byWeek[wk].push(d);});
-  const wEl=document.getElementById('weekly-activo');
+  const wEl=document.getElementById('weekly-activo');wEl.innerHTML='';
   Object.keys(byWeek).sort().reverse().forEach(wk=>{
-    const items=byWeek[wk];const blk=document.createElement('div');blk.className='week-block';
-    blk.innerHTML=`<div class="week-header"><div class="week-lbl">${fmtWeek(wk)}</div><div class="week-cnt">${items.length} candidato${items.length!==1?'s':''}</div><div class="week-line"></div></div>`;
-    const ch=document.createElement('div');ch.className='chips';
-    items.forEach(d=>{
+    const items=byWeek[wk];
+    const nCts={};NIVEL_LIST.forEach(nv=>{nCts[nv]=items.filter(d=>d.nivel===nv).length;});
+    const eCts={};items.forEach(d=>{const e=safe(d.grupo,'—');eCts[e]=(eCts[e]||0)+1;});
+    const topEtapas=Object.entries(eCts).sort((a,b)=>b[1]-a[1]).slice(0,4);
+    const nivelKpis=NIVEL_LIST.map(nv=>{if(!nCts[nv])return'';const nc=NIVEL_COLORS[nv]||'#888';return`<div style="display:inline-flex;align-items:center;gap:3px;font-size:10px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:2px;background:${nc};display:inline-block"></span><span style="color:${nc};font-weight:600">${nv}</span><span style="color:var(--text-muted);font-family:'DM Mono',monospace">${nCts[nv]}</span></div>`;}).filter(Boolean).join('');
+    const etapaKpis=topEtapas.map(([e,n])=>{const sc=stageColor(e);return`<span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;white-space:nowrap">${stageAbr(e)} ${n}</span>`;}).join('');
+    const eid=`wex-${wk.replace(/-/g,'')}`;
+    const blk=document.createElement('div');
+    blk.style.cssText='border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;background:#fff;';
+    const hdr=document.createElement('div');
+    hdr.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 14px;flex-wrap:wrap;cursor:pointer;user-select:none;';
+    hdr.innerHTML=`<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--lcg-dark);background:#EAF5F2;padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0">${fmtWeek(wk)}</div><div style="font-size:12px;font-weight:700;color:var(--lcg-dark);font-family:'DM Mono',monospace;flex-shrink:0;min-width:22px">${items.length}</div><div style="display:flex;gap:8px;flex-wrap:wrap;flex:1;align-items:center">${nivelKpis}</div><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${etapaKpis}</div><div id="btn-${eid}" style="flex-shrink:0;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-size:14px;font-weight:700;color:var(--lcg-dark);display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s">+</div>`;
+    blk.appendChild(hdr);
+    const det=document.createElement('div');det.id=eid;det.style.display='none';
+    [...items].sort((a,b)=>(stageIdx(b.grupo)??-1)-(stageIdx(a.grupo)??-1)).forEach(d=>{
       const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
-      const c=document.createElement('div');c.className='chip';
-      c.innerHTML=`<div class="chip-dot" style="background:${nc}"></div><span class="chip-badge" style="background:${sc}18;color:${sc}">${stageAbr(d.grupo)}</span><span class="chip-text"><b>${safe(d.nombre,'—').split(' ').slice(0,2).join(' ')}</b><span style="color:${nc};margin-left:4px;font-weight:600;font-size:9.5px">${safe(d.nivel,'')}</span></span>`;
-      c.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)} · <span style="color:${nc}">${safe(d.nivel)}</span></div><div style="font-size:10px;color:#8AA8A5;margin-top:2px">Fuente: ${safe(d.fuente)}</div>${d.dias_pipeline!=null?`<div style="color:#A9F6E8;margin-top:4px;font-size:10px">${d.dias_pipeline} días en pipeline</div>`:''}`));
-      c.addEventListener('mousemove',moveTip);c.addEventListener('mouseleave',hideTip);ch.appendChild(c);
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 14px;border-top:1px solid #F5F0EC;font-size:11px;flex-wrap:wrap;';
+      row.innerHTML=`<div style="flex:1;min-width:120px;font-weight:500;color:var(--text-primary)">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div><span style="background:${nc}18;color:${nc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span><span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.grupo,'—')}</span>${d.dias_pipeline!=null?`<span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text-muted)">${d.dias_pipeline}d</span>`:''}<span style="font-size:9px;color:var(--text-muted);margin-left:auto">${safe(d.fuente,'—')}</span>`;
+      det.appendChild(row);
     });
-    blk.appendChild(ch);wEl.appendChild(blk);
+    blk.appendChild(det);
+    hdr.addEventListener('click',()=>{
+      const open=det.style.display!=='none';
+      det.style.display=open?'none':'block';
+      const btn=document.getElementById('btn-'+eid);
+      if(btn){btn.textContent=open?'+':'−';btn.style.background=open?'#fff':'#EAF5F2';}
+    });
+    wEl.appendChild(blk);
   });
 
   // Candidate cards
   const cw=document.getElementById('cand-cards-wrap');
-  [...activos].sort((a,b)=>stageIdx(b.grupo)-stageIdx(a.grupo)).forEach(d=>{
+  [...activos].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0)).forEach(d=>{
     const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
     const card=document.createElement('div');card.className='cand-card';
     card.innerHTML=`<div class="cand-accent" style="background:${nc}"></div>
@@ -874,7 +892,7 @@ function renderMovimientos(){
       else if(isDesc){typeColor='#9B2335';fromStage=safe(d.grupo,'Pipeline');toStage='Descartado';}
       else if(isOferta){typeColor='#C04040';fromStage=safe(d.grupo,'Pipeline');toStage='Oferta Rechazada';}
       else if(isInact){typeColor='#8B5A00';fromStage=safe(d.grupo,'Pipeline');toStage='Inactivo';}
-      else{typeColor='#004A43';fromStage='Etapa anterior';toStage=safe(d.grupo,'Pipeline');}
+      else{typeColor='#004A43';fromStage=safe(d.grupo,'Pipeline');toStage='↑ Actualizado';}
       const bestCmt=getBestComment(d);
       const cmtStr=bestCmt&&bestCmt.trim().length>2?`<div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;font-style:italic">${bestCmt.slice(0,100)}${bestCmt.length>100?'…':''}</div>`:'';
       const row=document.createElement('div');row.className='flow-row';row.style.flexWrap='wrap';row.style.rowGap='3px';
