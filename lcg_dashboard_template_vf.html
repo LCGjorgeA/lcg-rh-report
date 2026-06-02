@@ -31,7 +31,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-prim
 
 /* KPI */
 .kpi-row{display:grid;gap:10px;margin-bottom:1.5rem;}
+.kpi-row-8{grid-template-columns:repeat(8,1fr);}
 .kpi-row-7{grid-template-columns:repeat(7,1fr);}
+@media(max-width:1200px){.kpi-row-8{grid-template-columns:repeat(4,1fr);}}
 .kpi-row-6{grid-template-columns:repeat(6,1fr);}
 .kpi-row-5{grid-template-columns:repeat(5,1fr);}
 .kpi-row-4{grid-template-columns:repeat(4,1fr);}
@@ -353,7 +355,7 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
       <button class="date-shortcut" id="btn-mes" onclick="setDateRange('month',this)">Este mes</button>
     </div>
   </div>
-  <div class="kpi-row kpi-row-7" id="kpi-mov"></div>
+  <div class="kpi-row kpi-row-8" id="kpi-mov"></div>
 
   <div class="section-label">Movimiento neto — waterfall</div>
   <div class="card">
@@ -446,6 +448,12 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
   <div class="card">
     <div id="etapa-nivel-bars"></div>
     <div class="funnel-legend" id="tl-nivel-legend" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"></div>
+  </div>
+
+  <div class="section-label">Movimientos semanales — ingresos, actividad y bajas</div>
+  <div class="card">
+    <div class="tl-legend" id="tl-mov-legend"></div>
+    <div style="overflow-x:auto;margin-top:10px;"><svg id="tl-mov-svg" height="180" style="display:block;width:100%;"></svg></div>
   </div>
 
   <div class="section-label">Candidatos ingresados — semana a semana (más reciente primero)</div>
@@ -816,6 +824,7 @@ function renderMovimientos(){
    {label:'Pasados a inactivo',val:inactivosInPeriod.length,sub:'Sin actividad',cls:'amber-lite'},
    {label:'Contratados',val:contratadosInPeriod.length,sub:'Contratados en período',cls:'green-lite'},
    {label:'Activos al final',val:activosFinales.length,sub:toVal,dark:true},
+   {label:'Movimientos',val:stageMovers.length,sub:'Actividad intra-etapa',cls:''},
   ].forEach(k=>{kpiEl.innerHTML+=`<div class="kpi ${k.dark?'dark':k.cls||''}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${(!k.dark&&!k.cls)?'<div class="kpi-bar"></div>':''}</div>`;});
 
   // ── Nivel filter buttons ──────────────────────────────────────────
@@ -885,24 +894,35 @@ function renderMovimientos(){
       const isOferta=ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id);
       const isCont=contratadosInPeriod.some(x=>x.item_id===d.item_id);
       const isInact=inactivosInPeriod.some(x=>x.item_id===d.item_id);
+      const isIntra=rank===0;
       const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
-      let typeColor,fromStage,toStage;
-      if(isCont){typeColor='#1A6B3A';fromStage=safe(d.grupo,'Pipeline');toStage='✓ Contratado';}
-      else if(isNew){typeColor='#1A6B3A';fromStage='Nuevo ingreso';toStage=safe(d.grupo,'Pipeline');}
-      else if(isDesc){typeColor='#9B2335';fromStage=safe(d.grupo,'Pipeline');toStage='Descartado';}
-      else if(isOferta){typeColor='#C04040';fromStage=safe(d.grupo,'Pipeline');toStage='Oferta Rechazada';}
-      else if(isInact){typeColor='#8B5A00';fromStage=safe(d.grupo,'Pipeline');toStage='Inactivo';}
-      else{typeColor='#004A43';fromStage=safe(d.grupo,'Pipeline');toStage='↑ Actualizado';}
       const bestCmt=getBestComment(d);
       const cmtStr=bestCmt&&bestCmt.trim().length>2?`<div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;font-style:italic">${bestCmt.slice(0,100)}${bestCmt.length>100?'…':''}</div>`:'';
       const row=document.createElement('div');row.className='flow-row';row.style.flexWrap='wrap';row.style.rowGap='3px';
-      row.innerHTML=`<div class="flow-name">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>
-        <div style="background:${typeColor}18;color:${typeColor};font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">${fromStage}</div>
-        <div class="flow-arrow">→</div>
-        <div style="background:${sc}18;color:${sc};font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">${toStage}</div>
-        <span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc};margin-left:4px">${safe(d.nivel,'—')}</span>
-        <div class="flow-date">${fmtShort(d.actualizado||d.creado_en)}</div>
-        ${cmtStr?`<div style="width:100%;padding-left:8px">${cmtStr}</div>`:''}`;
+      if(isIntra){
+        // Intra-stage: no previous stage stored — show current stage + update indicator
+        row.innerHTML=`<div class="flow-name">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>
+          <div style="background:#004A4318;color:#004A43;font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">${safe(d.grupo,'Pipeline')}</div>
+          <div class="flow-arrow">↑</div>
+          <div style="background:#004A4318;color:#004A43;font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">Actualizado</div>
+          <span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc};margin-left:4px">${safe(d.nivel,'—')}</span>
+          <div class="flow-date">${fmtShort(d.actualizado||d.creado_en)}</div>
+          ${cmtStr?`<div style="width:100%;padding-left:8px">${cmtStr}</div>`:''}`;
+      }else{
+        let typeColor,fromStage,toStage;
+        if(isCont){typeColor='#1A6B3A';fromStage=safe(d.grupo,'Pipeline');toStage='✓ Contratado';}
+        else if(isNew){typeColor='#1A6B3A';fromStage='Nuevo ingreso';toStage=safe(d.grupo,'Pipeline');}
+        else if(isDesc){typeColor='#9B2335';fromStage=safe(d.grupo,'Pipeline');toStage='Descartado';}
+        else if(isOferta){typeColor='#C04040';fromStage=safe(d.grupo,'Pipeline');toStage='Oferta Rechazada';}
+        else{typeColor='#8B5A00';fromStage=safe(d.grupo,'Pipeline');toStage='Inactivo';}
+        row.innerHTML=`<div class="flow-name">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>
+          <div style="background:${typeColor}18;color:${typeColor};font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">${fromStage}</div>
+          <div class="flow-arrow">→</div>
+          <div style="background:${sc}18;color:${sc};font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0">${toStage}</div>
+          <span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc};margin-left:4px">${safe(d.nivel,'—')}</span>
+          <div class="flow-date">${fmtShort(d.actualizado||d.creado_en)}</div>
+          ${cmtStr?`<div style="width:100%;padding-left:8px">${cmtStr}</div>`:''}`;
+      }
       flowEl.appendChild(row);
     });
     if(allFlowCands.length>40)flowEl.innerHTML+=`<div style="font-size:11px;color:var(--text-muted);padding:8px 0">+ ${allFlowCands.length-40} más…</div>`;
@@ -1478,6 +1498,19 @@ function renderTimeline(){
     if(activeH>0){const r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',x);r.setAttribute('y',spad.t+chartH2-tH);r.setAttribute('width',bW2);r.setAttribute('height',activeH);r.setAttribute('fill','#A9F6E8');r.setAttribute('opacity','0.85');stackSvg.appendChild(r);}
     // Desc portion (top)
     if(dH>0){const r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',x);r.setAttribute('y',spad.t+chartH2-tH+activeH);r.setAttribute('width',bW2);r.setAttribute('height',dH);r.setAttribute('fill','#004A43');r.setAttribute('opacity','0.75');stackSvg.appendChild(r);}
+    // Invisible hover rect over full bar column
+    const hr=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    hr.setAttribute('x',x);hr.setAttribute('y',spad.t);hr.setAttribute('width',bW2);hr.setAttribute('height',chartH2);
+    hr.setAttribute('fill','transparent');hr.style.cursor='default';
+    const wkLabel=fmtWeek(wk);
+    hr.addEventListener('mouseenter',e=>{
+      const tip=document.getElementById('wf-tooltip');
+      tip.innerHTML=`<div style="font-weight:700;color:var(--lcg-dark);margin-bottom:5px">${wkLabel}</div><div style="display:flex;align-items:center;gap:6px;padding:1px 0"><span style="width:10px;height:10px;border-radius:2px;background:#A9F6E8;display:inline-block"></span><span>Ingresos: <b>${d.total}</b></span></div><div style="display:flex;align-items:center;gap:6px;padding:1px 0"><span style="width:10px;height:10px;border-radius:2px;background:#D94040;display:inline-block"></span><span>Descartados: <b>${d.desc}</b></span></div><div style="display:flex;align-items:center;gap:6px;padding:1px 0"><span style="width:10px;height:10px;border-radius:2px;background:#E09020;display:inline-block"></span><span>Inactivos: <b>${d.inact}</b></span></div><div style="color:var(--text-muted);margin-top:4px;font-size:10px">Activos al cierre: <b>${Math.max(0,d.total-d.desc-d.inact)}</b></div>`;
+      tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';
+    });
+    hr.addEventListener('mousemove',moveWFTip);
+    hr.addEventListener('mouseleave',hideWFTip);
+    stackSvg.appendChild(hr);
     // Total label
     if(d.total>0&&bW2>=14){const t=document.createElementNS('http://www.w3.org/2000/svg','text');t.setAttribute('x',x+bW2/2);t.setAttribute('y',spad.t+chartH2-tH-3);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','8');t.setAttribute('fill','#004A43');t.setAttribute('font-weight','600');t.setAttribute('font-family','DM Mono,monospace');t.textContent=d.total;stackSvg.appendChild(t);}
     // X label (every 3rd)
@@ -1560,14 +1593,16 @@ function renderTimeline(){
     const cands=activos.filter(d=>d.grupo&&d.grupo.includes(s));
     if(!cands.length)return;
     const row=document.createElement('div');row.className='etapa-bar-row';
-    const track=document.createElement('div');track.className='etapa-bar-track';
-    track.style.width=Math.round(cands.length/maxEn*100)+'%';
+    // Wrapper fills available space; inner track width = proportion of max
+    const trackWrap=document.createElement('div');trackWrap.style.cssText='flex:1;background:#F0EBE6;border-radius:5px;overflow:hidden;height:20px;';
+    const pct=Math.round(cands.length/maxEn*100);
+    const track=document.createElement('div');track.style.cssText=`width:${pct}%;height:100%;display:flex;overflow:hidden;`;
     NIVEL_LIST.forEach(nv=>{
       const cnt=cands.filter(d=>d.nivel===nv).length;if(!cnt)return;
-      const pct=Math.round(cnt/cands.length*100);
+      const segPct=Math.round(cnt/cands.length*100);
       const seg=document.createElement('div');seg.className='etapa-bar-seg';
-      seg.style.cssText=`width:${pct}%;background:${NIVEL_COLORS[nv]};`;
-      if(pct>10)seg.textContent=cnt;
+      seg.style.cssText=`width:${segPct}%;background:${NIVEL_COLORS[nv]};`;
+      if(segPct>10)seg.textContent=cnt;
       seg.addEventListener('mouseenter',e=>{
         const cs=cands.filter(d=>d.nivel===nv);
         let h=`<div style="font-weight:600;color:#A9F6E8;margin-bottom:5px">${s} · ${nv} (${cs.length})</div>`;
@@ -1578,8 +1613,9 @@ function renderTimeline(){
       seg.addEventListener('mousemove',moveTip);seg.addEventListener('mouseleave',hideTip);
       track.appendChild(seg);
     });
+    trackWrap.appendChild(track);
     row.innerHTML=`<div class="etapa-bar-lbl">${s}</div>`;
-    row.appendChild(track);
+    row.appendChild(trackWrap);
     const num=document.createElement('div');num.className='etapa-bar-num';num.textContent=cands.length;
     row.appendChild(num);
     enEl.appendChild(row);
@@ -1597,7 +1633,9 @@ function renderTimeline(){
     items.forEach(d=>{
       const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
       const c=document.createElement('div');c.className='chip';
-      const statusColor=d.estatus==='Descartado'?'#9B2335':d.estatus==='Contratado'||d.estatus==='Contratados'?'#1A6B3A':nc;
+      const isExcluded=ACTIVE_EXCL.includes(d.estatus)||['Contratado','Contratados'].includes(d.estatus);
+      const statusColor=d.estatus==='Descartado'?'#9B2335':['Contratado','Contratados'].includes(d.estatus)?'#1A6B3A':OFERTA_STATUSES.includes(d.estatus)?'#C04040':d.estatus==='Inactivo'?'#8B5A00':nc;
+      if(isExcluded)c.style.cssText='opacity:0.45;filter:grayscale(0.5);';
       c.innerHTML=`<div class="chip-dot" style="background:${statusColor}"></div><span class="chip-badge" style="background:${sc}18;color:${sc}">${stageAbr(d.grupo)}</span><span class="chip-text"><b>${safe(d.nombre,'—').split(' ').slice(0,2).join(' ')}</b><span style="color:${nc};margin-left:4px;font-size:9px;font-weight:600">${safe(d.nivel,'')}</span><span style="color:${statusColor};margin-left:4px;font-size:9px">${safe(d.estatus,'')}</span></span>`;
       c.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)} · ${safe(d.estatus)}</div><div style="font-size:10px;color:#8AA8A5;margin-top:2px">Nivel: <span style="color:${nc}">${safe(d.nivel,'—')}</span> · Fuente: ${safe(d.fuente,'—')}</div>${d.dias_pipeline!=null?`<div style="color:#A9F6E8;margin-top:4px;font-size:10px">${d.dias_pipeline} días</div>`:''}`));
       c.addEventListener('mousemove',moveTip);c.addEventListener('mouseleave',hideTip);ch.appendChild(c);
@@ -1605,13 +1643,86 @@ function renderTimeline(){
     blk.appendChild(ch);wlEl.appendChild(blk);
   });
   if(weeks.length>20)wlEl.innerHTML+=`<div style="font-size:11px;color:var(--text-muted);padding:8px 0;text-align:center">Mostrando 20 semanas más recientes de ${weeks.length} total</div>`;
+
+  // ── Movimientos semanales: ingresos / actividad / bajas ──────────
+  // Build weekly movement counts keyed by week of `actualizado`
+  const byWeekMov={};
+  weeks.forEach(wk=>{byWeekMov[wk]={ing:byWeekAll[wk].total,mov:0,baja:0};});
+  const bajaStatuses=new Set([...ACTIVE_EXCL,'Contratado','Contratados']);
+  pipeData.forEach(d=>{
+    const wk=getWeekKey(d.actualizado);if(!wk||!byWeekMov[wk])return;
+    const entryWk=getWeekKey(d.creado_en);
+    if(bajaStatuses.has(d.estatus)){byWeekMov[wk].baja++;}
+    else if(wk!==entryWk){byWeekMov[wk].mov++;} // updated in a different week than creation
+  });
+  const movSvg=document.getElementById('tl-mov-svg');
+  const MW=Math.max(300,movSvg.parentElement.offsetWidth||800),MH=180;
+  movSvg.setAttribute('width',MW);movSvg.setAttribute('viewBox',`0 0 ${MW} ${MH}`);
+  movSvg.innerHTML='';
+  const mpad={l:36,r:10,t:16,b:32};
+  const mcH=MH-mpad.t-mpad.b;
+  const nWM=weeks.length;const mcW=Math.max(6,Math.floor((MW-mpad.l-mpad.r)/nWM));
+  const mbW=Math.max(3,Math.floor(mcW*0.75));
+  const maxMov=Math.max(...weeks.map(wk=>(byWeekMov[wk]?.ing||0)+(byWeekMov[wk]?.mov||0)+(byWeekMov[wk]?.baja||0)),1);
+  // Grid
+  [0,Math.round(maxMov/2),maxMov].forEach(v=>{
+    const sy=mpad.t+mcH-v/maxMov*mcH;
+    const gl=document.createElementNS('http://www.w3.org/2000/svg','line');
+    gl.setAttribute('x1',mpad.l);gl.setAttribute('x2',MW-mpad.r);gl.setAttribute('y1',sy);gl.setAttribute('y2',sy);
+    gl.setAttribute('stroke','#EDE8E4');gl.setAttribute('stroke-width','1');movSvg.appendChild(gl);
+    const gt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    gt.setAttribute('x',mpad.l-3);gt.setAttribute('y',sy+4);gt.setAttribute('text-anchor','end');
+    gt.setAttribute('font-size','8');gt.setAttribute('fill','#8AA8A5');gt.setAttribute('font-family','DM Mono,monospace');
+    gt.textContent=v;movSvg.appendChild(gt);
+  });
+  weeks.forEach((wk,i)=>{
+    const d=byWeekMov[wk]||{ing:0,mov:0,baja:0};
+    const x=mpad.l+i*mcW+Math.floor((mcW-mbW)/2);
+    const ingH=Math.round(d.ing/maxMov*mcH),movH=Math.round(d.mov/maxMov*mcH),bajaH=Math.round(d.baja/maxMov*mcH);
+    const totalH=ingH+movH+bajaH;
+    // Stacked: ingresos (bottom, green), movimientos (middle, teal), bajas (top, red)
+    let yOff=mpad.t+mcH;
+    [[ingH,'#00B880'],[movH,'#004A43'],[bajaH,'#D94040']].forEach(([h,col])=>{
+      if(!h)return;
+      yOff-=h;
+      const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      r.setAttribute('x',x);r.setAttribute('y',yOff);r.setAttribute('width',mbW);r.setAttribute('height',h);
+      r.setAttribute('fill',col);r.setAttribute('opacity','0.85');movSvg.appendChild(r);
+    });
+    // Hover rect
+    if(totalH>0){
+      const hr=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      hr.setAttribute('x',x);hr.setAttribute('y',mpad.t+mcH-totalH);hr.setAttribute('width',mbW);hr.setAttribute('height',totalH);
+      hr.setAttribute('fill','transparent');hr.style.cursor='default';
+      hr.addEventListener('mouseenter',e=>{
+        const tip=document.getElementById('wf-tooltip');
+        tip.innerHTML=`<div style="font-weight:700;color:var(--lcg-dark);margin-bottom:5px">${fmtWeek(wk)}</div><div style="display:flex;align-items:center;gap:6px;padding:1px 0"><span style="width:10px;height:10px;border-radius:2px;background:#00B880;display:inline-block"></span>Ingresos: <b>${d.ing}</b></div><div style="display:flex;align-items:center;gap:6px;padding:1px 0"><span style="width:10px;height:10px;border-radius:2px;background:#004A43;display:inline-block"></span>Movimientos: <b>${d.mov}</b></div><div style="display:flex;align-items:center;gap:6px;padding:1px 0"><span style="width:10px;height:10px;border-radius:2px;background:#D94040;display:inline-block"></span>Bajas: <b>${d.baja}</b></div>`;
+        tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';
+      });
+      hr.addEventListener('mousemove',moveWFTip);hr.addEventListener('mouseleave',hideWFTip);
+      movSvg.appendChild(hr);
+    }
+    // X label (every few weeks)
+    if(i%Math.max(1,Math.floor(nWM/12))===0){
+      const ds=new Date(wk+'T12:00:00');
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',x+mbW/2);t.setAttribute('y',MH-4);t.setAttribute('text-anchor','middle');
+      t.setAttribute('font-size','8');t.setAttribute('fill','#8AA8A5');t.setAttribute('font-family','DM Mono,monospace');
+      t.textContent=`${ds.getDate()}/${ds.getMonth()+1}`;movSvg.appendChild(t);
+    }
+  });
+  const lgMovEl=document.getElementById('tl-mov-legend');lgMovEl.innerHTML='';
+  [{c:'#00B880',l:'Ingresos al pipeline'},{c:'#004A43',l:'Movimientos intra-etapa'},{c:'#D94040',l:'Bajas (descartes + inactivos)'}].forEach(x=>{
+    lgMovEl.innerHTML+=`<div class="tl-leg-item"><div class="tl-leg-dot" style="background:${x.c};height:10px;width:10px;border-radius:2px"></div>${x.l}</div>`;
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
 // TAB 5: DETALLE
 // ═══════════════════════════════════════════════════════════
 (function(){
-  const allData=pipeData;let selStatus=new Set(),selNivel=new Set(),selEtapa=new Set(),showAll=false;
+  const allData=[...pipeData].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0));
+  let selStatus=new Set(),selNivel=new Set(),selEtapa=new Set(),showAll=false;
 
   function makeMultiBtn(label,set,key,container,renderFn){
     const b=document.createElement('button');b.className='filter-btn';b.textContent=safe(label,'—');
