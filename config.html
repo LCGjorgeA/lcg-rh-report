@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LCG — Config</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --lcg-dark:#004A43;--lcg-mid:#00B880;--lcg-light:#A9F6E8;--lcg-cream:#F3EEEB;
+  --text-primary:#0D1F1D;--text-secondary:#4A6462;--text-muted:#8AA8A5;
+  --border:#D4E8E5;--bg:#EEE9E5;--red:#9B2335;--amber:#8B5A00;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-primary);min-height:100vh;display:flex;flex-direction:column;}
+
+/* LOGIN */
+.login-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem;}
+.login-card{background:#fff;border:1px solid var(--border);border-radius:20px;padding:2.5rem 2.25rem;width:min(380px,100%);box-shadow:0 8px 32px rgba(0,0,0,.08);}
+.login-brand{font-size:10px;font-weight:600;letter-spacing:.14em;color:var(--lcg-mid);text-transform:uppercase;margin-bottom:6px;}
+.login-card h2{font-size:20px;font-weight:600;color:var(--lcg-dark);margin-bottom:.35rem;}
+.login-card p{font-size:12px;color:var(--text-muted);margin-bottom:1.5rem;}
+.login-card label{font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:5px;}
+.login-card input[type=password]{width:100%;font-size:13px;font-family:'DM Mono',monospace;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;outline:none;background:#FAFAF8;transition:border .15s;}
+.login-card input[type=password]:focus{border-color:var(--lcg-mid);background:#fff;}
+.login-err{font-size:11px;color:var(--red);margin-top:6px;display:none;}
+.btn-primary{width:100%;margin-top:1rem;padding:11px;background:var(--lcg-dark);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .15s;}
+.btn-primary:hover{background:var(--lcg-mid);}
+
+/* MAIN APP */
+.app{display:none;max-width:860px;margin:0 auto;padding:1.5rem 1rem 4rem;width:100%;}
+.app-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;padding-bottom:1rem;border-bottom:2px solid var(--lcg-dark);}
+.app-header-left .brand{font-size:10px;font-weight:600;letter-spacing:.14em;color:var(--lcg-mid);text-transform:uppercase;margin-bottom:4px;}
+.app-header-left h1{font-size:20px;font-weight:600;color:var(--lcg-dark);}
+.btn-logout{font-size:11px;padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;background:#fff;color:var(--text-secondary);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.btn-logout:hover{border-color:var(--red);color:var(--red);}
+
+/* SECTIONS */
+.section{background:#fff;border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin-bottom:1.25rem;}
+.section-title{font-size:13px;font-weight:600;color:var(--lcg-dark);margin-bottom:.25rem;display:flex;align-items:center;gap:8px;}
+.section-desc{font-size:11px;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.5;}
+.field-row{margin-bottom:1rem;}
+.field-label{font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:5px;}
+.field-hint{font-size:10px;color:var(--text-muted);margin-top:3px;line-height:1.4;}
+input[type=text],input[type=password],input[type=number]{font-size:12px;font-family:'DM Mono',monospace;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;background:#FAFAF8;width:100%;transition:border .15s;}
+input[type=text]:focus,input[type=password]:focus,input[type=number]:focus{border-color:var(--lcg-mid);background:#fff;}
+input[type=number]{width:80px;}
+
+/* TAGS INPUT */
+.tags-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;background:#FAFAF8;min-height:42px;cursor:text;transition:border .15s;}
+.tags-wrap:focus-within{border-color:var(--lcg-mid);background:#fff;}
+.tag{display:inline-flex;align-items:center;gap:4px;background:var(--lcg-dark);color:#fff;font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;}
+.tag.baja{background:#9B2335;}
+.tag.descarte{background:#7A3FBF;}
+.tag.contratado{background:#1A6B3A;}
+.tag.inactivo{background:#8B5A00;}
+.tag-remove{cursor:pointer;opacity:.7;font-size:13px;line-height:1;padding:0 1px;}
+.tag-remove:hover{opacity:1;}
+.tags-input{border:none;outline:none;background:transparent;font-size:12px;font-family:'DM Sans',sans-serif;min-width:120px;flex:1;color:var(--text-primary);}
+
+/* REFRESH SECTION */
+.pat-row{display:flex;gap:8px;align-items:flex-end;}
+.pat-row input{flex:1;}
+.btn-sm{font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.btn-green{background:var(--lcg-mid);color:#fff;}
+.btn-green:hover{background:var(--lcg-dark);}
+.btn-red{background:#FDECEA;color:var(--red);border:1px solid #F5B8B3;}
+.btn-red:hover{background:var(--red);color:#fff;}
+.refresh-feedback{font-size:11px;margin-top:8px;font-family:'DM Mono',monospace;color:var(--text-muted);}
+
+/* SAVE BAR */
+.save-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);padding:.85rem 1.5rem;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 16px rgba(0,0,0,.06);}
+.save-bar.visible{display:flex;}
+.save-bar-msg{font-size:12px;color:var(--text-secondary);}
+.btn-save{font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;padding:10px 28px;border-radius:10px;border:none;background:var(--lcg-dark);color:#fff;cursor:pointer;transition:background .15s;}
+.btn-save:hover{background:var(--lcg-mid);}
+.save-ok{font-size:12px;color:var(--lcg-mid);font-weight:600;display:none;}
+
+/* CHANGE PASSWORD */
+.pwd-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:1rem 0;}
+
+/* BADGE */
+.badge-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-wrap" id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">LCG México · People &amp; Culture</div>
+    <h2>Panel de Configuración</h2>
+    <p>Acceso restringido — solo administrador</p>
+    <label>Contraseña</label>
+    <input type="password" id="pwd-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" />
+    <div class="login-err" id="login-err">Contraseña incorrecta</div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- CONFIG APP -->
+<div class="app" id="app">
+
+  <div class="app-header">
+    <div class="app-header-left">
+      <div class="brand">LCG México · People &amp; Culture · Talent Acquisition</div>
+      <h1>Configuración del Dashboard</h1>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Cerrar sesión</button>
+  </div>
+
+  <!-- SECTION 1: REFRESH -->
+  <div class="section">
+    <div class="section-title">🔄 Actualización del Reporte</div>
+    <div class="section-desc">Configura el token para disparar el workflow de GitHub Actions y actualizar los datos en vivo.</div>
+    <div class="field-row">
+      <label class="field-label">GitHub Personal Access Token (Classic · scope: workflow)</label>
+      <div class="pat-row">
+        <input type="password" id="cfg-pat" placeholder="ghp_..." autocomplete="off" />
+        <button class="btn-sm btn-green" onclick="triggerRefresh()">▶ Actualizar ahora</button>
+        <button class="btn-sm btn-red" onclick="clearPat()">Borrar</button>
+      </div>
+      <div class="field-hint">El token se guarda solo en este navegador (localStorage). Nunca se sube a GitHub.</div>
+      <div class="refresh-feedback" id="refresh-feedback"></div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: STATUS CATEGORIES -->
+  <div class="section">
+    <div class="section-title">📊 Categorías de Estado</div>
+    <div class="section-desc">Define qué valores del campo "Estatus" de Monday corresponden a cada categoría. Escribe un valor y presiona Enter o coma para agregar.</div>
+
+    <div class="field-row">
+      <label class="field-label"><span class="badge-dot" style="background:#9B2335;margin-right:5px;"></span>Bajas / Inactivos (no se muestran como activos)</label>
+      <div class="tags-wrap" id="tags-baja" onclick="focusTagInput('baja')"></div>
+      <div class="field-hint">Ej: Descartado, Inactivo, No contactado, Archivado</div>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label"><span class="badge-dot" style="background:#7A3FBF;margin-right:5px;"></span>Descartados (análisis de descarte)</label>
+      <div class="tags-wrap" id="tags-descarte" onclick="focusTagInput('descarte')"></div>
+      <div class="field-hint">Ej: Descartado</div>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label"><span class="badge-dot" style="background:#1A6B3A;margin-right:5px;"></span>Contratados / Proceso completado</label>
+      <div class="tags-wrap" id="tags-contratado" onclick="focusTagInput('contratado')"></div>
+      <div class="field-hint">Ej: Contratado, Contratados, Oferta aceptada</div>
+    </div>
+
+  </div>
+
+  <!-- SECTION 3: THRESHOLDS -->
+  <div class="section">
+    <div class="section-title">⚙️ Umbrales y Alertas</div>
+    <div class="section-desc">Define los límites que determinan cuándo un candidato se marca con alerta.</div>
+
+    <div class="field-row">
+      <label class="field-label">Días sin actividad para alerta de inactividad</label>
+      <input type="number" id="cfg-inactive-days" value="14" min="1" max="365" />
+      <div class="field-hint">Candidatos sin actualización por más de estos días se marcan como inactivos.</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field-row">
+      <label class="field-label">Días en pipeline — alerta amarilla ⚠️</label>
+      <input type="number" id="cfg-days-amber" value="30" min="1" max="365" />
+      <div class="field-hint">Candidatos activos con más de estos días en el pipeline.</div>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label">Días en pipeline — alerta roja 🔴</label>
+      <input type="number" id="cfg-days-red" value="60" min="1" max="365" />
+      <div class="field-hint">Candidatos activos con más de estos días en el pipeline.</div>
+    </div>
+
+  </div>
+
+  <!-- SECTION 4: CHANGE PASSWORD -->
+  <div class="section">
+    <div class="section-title">🔒 Cambiar Contraseña</div>
+    <div class="section-desc">Actualiza la contraseña de acceso a esta página. Requiere hacer push al repositorio después de guardar.</div>
+    <div class="pwd-grid">
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">Nueva contraseña</label>
+        <input type="password" id="new-pwd" placeholder="••••••••" />
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">Confirmar contraseña</label>
+        <input type="password" id="new-pwd2" placeholder="••••••••" />
+      </div>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn-sm btn-green" onclick="generateNewHash()">Generar hash</button>
+      <div id="new-hash-result" style="font-size:11px;color:var(--text-muted);margin-top:8px;font-family:'DM Mono',monospace;word-break:break-all;"></div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- SAVE BAR -->
+<div class="save-bar" id="save-bar">
+  <span class="save-bar-msg">Tienes cambios sin guardar</span>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="save-ok" id="save-ok">✓ Guardado</span>
+    <button class="btn-save" onclick="saveConfig()">Guardar configuración</button>
+  </div>
+</div>
+
+<script>
+// ── PASSWORD HASH (SHA-256) ────────────────────────────────────────
+// Default password: LCG2026
+// To change: use the "Cambiar contraseña" section, copy the hash, update PWD_HASH below, push to GitHub
+const PWD_HASH = 'ffd3efc881005e81f76d6a058ad1caca4d0a70b16eb4cdf2cba957a009046880';
+
+// ── GITHUB CONFIG ──────────────────────────────────────────────────
+const GITHUB_OWNER = 'LCGjorgeA';
+const GITHUB_REPO  = 'lcg-rh-report';
+
+// ── DEFAULTS ───────────────────────────────────────────────────────
+const DEFAULTS = {
+  baja:       ['Descartado','Inactivo','No contactado','Archivado','No interesado','Retirado'],
+  descarte:   ['Descartado'],
+  contratado: ['Contratado','Contratados','Oferta aceptada'],
+  inactiveDays: 14,
+  daysAmber:    30,
+  daysRed:      60,
+};
+
+// ── STATE ──────────────────────────────────────────────────────────
+let tags = { baja: [], descarte: [], contratado: [] };
+let dirty = false;
+
+// ── LOGIN ──────────────────────────────────────────────────────────
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin() {
+  const pwd = document.getElementById('pwd-input').value;
+  const hash = await sha256(pwd);
+  if (hash === PWD_HASH) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    sessionStorage.setItem('lcg_config_auth', '1');
+    loadConfig();
+  } else {
+    const err = document.getElementById('login-err');
+    err.style.display = 'block';
+    document.getElementById('pwd-input').value = '';
+    setTimeout(()=>err.style.display='none', 3000);
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('lcg_config_auth');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pwd-input').value = '';
+}
+
+// Auto-login if session active
+if (sessionStorage.getItem('lcg_config_auth') === '1') {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+// ── TAGS ───────────────────────────────────────────────────────────
+function renderTags(group) {
+  const wrap = document.getElementById('tags-' + group);
+  wrap.innerHTML = '';
+  tags[group].forEach((val, i) => {
+    const t = document.createElement('span');
+    t.className = 'tag ' + group;
+    t.innerHTML = val + '<span class="tag-remove" onclick="removeTag(\'' + group + '\',' + i + ')">×</span>';
+    wrap.appendChild(t);
+  });
+  const inp = document.createElement('input');
+  inp.className = 'tags-input';
+  inp.id = 'tag-input-' + group;
+  inp.placeholder = 'Escribe y presiona Enter...';
+  inp.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(group, inp.value.trim().replace(/,$/,''));
+      inp.value = '';
+    } else if (e.key === 'Backspace' && inp.value === '' && tags[group].length > 0) {
+      removeTag(group, tags[group].length - 1);
+    }
+  };
+  wrap.appendChild(inp);
+}
+
+function focusTagInput(group) {
+  const inp = document.getElementById('tag-input-' + group);
+  if (inp) inp.focus();
+}
+
+function addTag(group, val) {
+  if (!val) return;
+  if (tags[group].includes(val)) return;
+  tags[group].push(val);
+  renderTags(group);
+  markDirty();
+}
+
+function removeTag(group, idx) {
+  tags[group].splice(idx, 1);
+  renderTags(group);
+  markDirty();
+}
+
+// ── DIRTY / SAVE BAR ───────────────────────────────────────────────
+function markDirty() {
+  dirty = true;
+  const bar = document.getElementById('save-bar');
+  bar.classList.add('visible');
+  document.getElementById('save-ok').style.display = 'none';
+}
+
+['cfg-inactive-days','cfg-days-amber','cfg-days-red'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', markDirty);
+});
+
+// ── LOAD CONFIG ────────────────────────────────────────────────────
+function loadConfig() {
+  const stored = JSON.parse(localStorage.getItem('lcg_dashboard_config') || '{}');
+  const cfg = Object.assign({}, DEFAULTS, stored);
+
+  tags.baja       = cfg.baja       || DEFAULTS.baja;
+  tags.descarte   = cfg.descarte   || DEFAULTS.descarte;
+  tags.contratado = cfg.contratado || DEFAULTS.contratado;
+
+  ['baja','descarte','contratado'].forEach(renderTags);
+
+  document.getElementById('cfg-inactive-days').value = cfg.inactiveDays ?? DEFAULTS.inactiveDays;
+  document.getElementById('cfg-days-amber').value    = cfg.daysAmber    ?? DEFAULTS.daysAmber;
+  document.getElementById('cfg-days-red').value      = cfg.daysRed      ?? DEFAULTS.daysRed;
+
+  // PAT
+  const pat = localStorage.getItem('lcg_refresh_pat') || '';
+  document.getElementById('cfg-pat').value = pat;
+
+  document.getElementById('app').style.display = 'block';
+}
+
+// ── SAVE CONFIG ────────────────────────────────────────────────────
+function saveConfig() {
+  const cfg = {
+    baja:         tags.baja,
+    descarte:     tags.descarte,
+    contratado:   tags.contratado,
+    inactiveDays: parseInt(document.getElementById('cfg-inactive-days').value) || 14,
+    daysAmber:    parseInt(document.getElementById('cfg-days-amber').value)    || 30,
+    daysRed:      parseInt(document.getElementById('cfg-days-red').value)      || 60,
+  };
+  localStorage.setItem('lcg_dashboard_config', JSON.stringify(cfg));
+
+  // Save PAT separately
+  const pat = document.getElementById('cfg-pat').value.trim();
+  if (pat) localStorage.setItem('lcg_refresh_pat', pat);
+  else     localStorage.removeItem('lcg_refresh_pat');
+
+  dirty = false;
+  document.getElementById('save-ok').style.display = 'inline';
+  setTimeout(() => {
+    document.getElementById('save-bar').classList.remove('visible');
+    document.getElementById('save-ok').style.display = 'none';
+  }, 2000);
+}
+
+// ── REFRESH ────────────────────────────────────────────────────────
+function triggerRefresh() {
+  const pat = document.getElementById('cfg-pat').value.trim();
+  if (!pat) {
+    setFeedback('Ingresa tu token primero.', 'var(--red)');
+    return;
+  }
+  setFeedback('Disparando workflow...', 'var(--text-muted)');
+  fetch('https://api.github.com/repos/' + GITHUB_OWNER + '/' + GITHUB_REPO + '/actions/workflows/refresh.yml/dispatches', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'token ' + pat,
+      'Content-Type':  'application/json',
+      'Accept':        'application/vnd.github+json'
+    },
+    body: JSON.stringify({ ref: 'main' })
+  }).then(r => {
+    if (r.status === 204) {
+      setFeedback('✓ Workflow disparado — regresa en ~3 min y recarga el dashboard.', 'var(--lcg-mid)');
+      // Save PAT if it worked
+      localStorage.setItem('lcg_refresh_pat', pat);
+    } else {
+      return r.text().then(t => { throw new Error(r.status + ': ' + t); });
+    }
+  }).catch(e => {
+    setFeedback('Error: ' + e.message, 'var(--red)');
+  });
+}
+
+function clearPat() {
+  document.getElementById('cfg-pat').value = '';
+  localStorage.removeItem('lcg_refresh_pat');
+  setFeedback('Token borrado.', 'var(--text-muted)');
+  markDirty();
+}
+
+function setFeedback(msg, color) {
+  const el = document.getElementById('refresh-feedback');
+  el.textContent = msg;
+  el.style.color = color || 'var(--text-muted)';
+}
+
+// ── CHANGE PASSWORD ────────────────────────────────────────────────
+async function generateNewHash() {
+  const p1 = document.getElementById('new-pwd').value;
+  const p2 = document.getElementById('new-pwd2').value;
+  const el = document.getElementById('new-hash-result');
+  if (!p1) { el.textContent = 'Escribe una contraseña.'; return; }
+  if (p1 !== p2) { el.textContent = 'Las contraseñas no coinciden.'; return; }
+  const hash = await sha256(p1);
+  el.innerHTML = 'Copia este hash y reemplaza el valor de <code>PWD_HASH</code> en config.html, luego haz push:<br><br><strong>' + hash + '</strong>';
+}
+
+// Init tag inputs on load
+window.addEventListener('load', () => {
+  if (sessionStorage.getItem('lcg_config_auth') === '1') loadConfig();
+});
+</script>
+</body>
+</html>
