@@ -549,18 +549,29 @@ if(typeof COMMENTS_DATA!=='undefined'&&Array.isArray(COMMENTS_DATA)){
   });
   Object.keys(grouped).forEach(k=>commentMap[k]=grouped[k].txt);
 }
+// Index descartados reasons by item_id and nombre (descData has the rejection reason)
+const descReasonById={};
+const descReasonByName={};
+descData.forEach(d=>{
+  const razon=(d.razon||d.ultimo_comentario||'').trim();
+  if(!razon)return;
+  if(d.item_id)descReasonById[String(d.item_id)]=razon;
+  if(d.nombre)descReasonByName[d.nombre]=razon;
+});
+
 // Also index by nombre for fallback
 const commentByName={};
-pipeData.forEach(d=>{
-  const best=commentMap[String(d.item_id||'')]||d.razon||'';
+[...pipeData,...descData].forEach(d=>{
+  const best=commentMap[String(d.item_id||'')]||descReasonById[String(d.item_id||'')]||d.razon||d.ultimo_comentario||'';
   if(best)commentByName[d.nombre||'']=best;
 });
 
 function getBestComment(d){
-  const byId=commentMap[String(d.item_id||'')];
-  if(byId)return byId;
-  const byName=commentByName[d.nombre||''];
-  if(byName)return byName;
+  const id=String(d.item_id||'');
+  if(commentMap[id])return commentMap[id];
+  if(descReasonById[id])return descReasonById[id];
+  if(descReasonByName[d.nombre||''])return descReasonByName[d.nombre||''];
+  if(commentByName[d.nombre||''])return commentByName[d.nombre||''];
   return d.razon||d.ultimo_comentario||'';
 }
 
@@ -810,32 +821,60 @@ function renderMovimientos(){
 
   drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,contratadosInPeriod,activosFinales);
 
-  // ── Movimientos entre etapas (sorted: higher stage first, Nuevo ingreso last) ──
+  // ── Compute stageMovers (intra-pipeline, no exit/entry status change) ──────
+  // Defined early so it can be reused both in the flow table and the activity log
+  const stageMovers=pipeData.filter(d=>{
+    if(newEntries.some(x=>x.item_id===d.item_id))return false;
+    if(descartadosInPeriod.some(x=>x.item_id===d.item_id))return false;
+    if(inactivosInPeriod.some(x=>x.item_id===d.item_id))return false;
+    if(ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id))return false;
+    if(contratadosInPeriod.some(x=>x.item_id===d.item_id))return false;
+    const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to&&isActive(d);
+  });
+
+  // ── Movimientos entre etapas ──────────────────────────────────────
+  // Sort priority: 0=intra-etapa, 1=nuevo ingreso, 2=exits (bajas al final)
   const flowEl=document.getElementById('movements-flow');flowEl.innerHTML='';
-  const movedSet=new Map();
-  [...newEntries,...descartadosInPeriod,...inactivosInPeriod,...ofertaRechazadaInPeriod,...contratadosInPeriod].forEach(d=>{if(!movedSet.has(d.item_id))movedSet.set(d.item_id,d);});
-  const movedCands=[...movedSet.values()];
-  if(!movedCands.length){flowEl.innerHTML=emptyState('Sin movimientos entre etapas en el período');
+  const isExit=d=>descartadosInPeriod.some(x=>x.item_id===d.item_id)||inactivosInPeriod.some(x=>x.item_id===d.item_id)||ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id)||contratadosInPeriod.some(x=>x.item_id===d.item_id);
+  const allFlowCands=[
+    ...stageMovers.map(d=>({d,rank:0})),
+    ...newEntries.map(d=>({d,rank:1})),
+    ...[...descartadosInPeriod,...inactivosInPeriod,...ofertaRechazadaInPeriod,...contratadosInPeriod]
+      .filter((d,i,arr)=>arr.findIndex(x=>x.item_id===d.item_id)===i)
+      .map(d=>({d,rank:2})),
+  ];
+  if(!allFlowCands.length){flowEl.innerHTML=emptyState('Sin movimientos en el período');
   }else{
-    // Sort: higher stageIdx first (later pipeline stage = top), newEntries (no stage) last
-    const sorted=[...movedCands].sort((a,b)=>{
-      const aIsNew=newEntries.some(x=>x.item_id===a.item_id);
-      const bIsNew=newEntries.some(x=>x.item_id===b.item_id);
-      if(aIsNew&&!bIsNew)return 1;
-      if(!aIsNew&&bIsNew)return -1;
-      const ai=stageIdx(a.grupo)??-1,bi=stageIdx(b.grupo)??-1;
+    // Within each rank: sort by stageIdx descending then by date
+    allFlowCands.sort((a,b)=>{
+      if(a.rank!==b.rank)return a.rank-b.rank;
+      const ai=stageIdx(a.d.grupo)??-1,bi=stageIdx(b.d.grupo)??-1;
       if(bi!==ai)return bi-ai;
-      return(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0);
+      return(toDate(b.d.actualizado||b.d.creado_en)||0)-(toDate(a.d.actualizado||a.d.creado_en)||0);
     });
-    sorted.slice(0,30).forEach(d=>{
-      const isNew=newEntries.some(x=>x.item_id===d.item_id),isDesc=descartadosInPeriod.some(x=>x.item_id===d.item_id),isOferta=ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id),isCont=contratadosInPeriod.some(x=>x.item_id===d.item_id);
+    // Section headers
+    let lastRank=-1;
+    allFlowCands.slice(0,40).forEach(({d,rank})=>{
+      if(rank!==lastRank){
+        lastRank=rank;
+        const hdr=document.createElement('div');
+        hdr.style.cssText='font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);padding:8px 0 4px;border-top:'+(rank>0?'1px solid var(--border)':'none');
+        hdr.textContent=rank===0?'Movimiento intra-etapa':rank===1?'Nuevos ingresos':'Bajas del período';
+        flowEl.appendChild(hdr);
+      }
+      const isNew=newEntries.some(x=>x.item_id===d.item_id);
+      const isDesc=descartadosInPeriod.some(x=>x.item_id===d.item_id);
+      const isOferta=ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id);
+      const isCont=contratadosInPeriod.some(x=>x.item_id===d.item_id);
+      const isInact=inactivosInPeriod.some(x=>x.item_id===d.item_id);
       const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
       let typeColor,fromStage,toStage;
       if(isCont){typeColor='#1A6B3A';fromStage=safe(d.grupo,'Pipeline');toStage='✓ Contratado';}
       else if(isNew){typeColor='#1A6B3A';fromStage='Nuevo ingreso';toStage=safe(d.grupo,'Pipeline');}
       else if(isDesc){typeColor='#9B2335';fromStage=safe(d.grupo,'Pipeline');toStage='Descartado';}
       else if(isOferta){typeColor='#C04040';fromStage=safe(d.grupo,'Pipeline');toStage='Oferta Rechazada';}
-      else{typeColor='#8B5A00';fromStage=safe(d.grupo,'Pipeline');toStage='Inactivo';}
+      else if(isInact){typeColor='#8B5A00';fromStage=safe(d.grupo,'Pipeline');toStage='Inactivo';}
+      else{typeColor='#004A43';fromStage='Etapa anterior';toStage=safe(d.grupo,'Pipeline');}
       const bestCmt=getBestComment(d);
       const cmtStr=bestCmt&&bestCmt.trim().length>2?`<div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;font-style:italic">${bestCmt.slice(0,100)}${bestCmt.length>100?'…':''}</div>`:'';
       const row=document.createElement('div');row.className='flow-row';row.style.flexWrap='wrap';row.style.rowGap='3px';
@@ -848,74 +887,112 @@ function renderMovimientos(){
         ${cmtStr?`<div style="width:100%;padding-left:8px">${cmtStr}</div>`:''}`;
       flowEl.appendChild(row);
     });
-    if(movedCands.length>30)flowEl.innerHTML+=`<div style="font-size:11px;color:var(--text-muted);padding:8px 0">+ ${movedCands.length-30} más…</div>`;
+    if(allFlowCands.length>40)flowEl.innerHTML+=`<div style="font-size:11px;color:var(--text-muted);padding:8px 0">+ ${allFlowCands.length-40} más…</div>`;
   }
 
-  // ── Activos visual: nivel squares comparison ─────────────────────
-  (function renderActivosVisual(){
+  // ── Activos visual: Sankey por nivel ─────────────────────────────
+  (function renderSankey(){
     const el=document.getElementById('activos-visual');el.innerHTML='';
-    const MAX_SIDE=80; // px for the largest square
-    // Count by nivel for each snapshot
-    function byNivel(arr){
-      const m={};NIVEL_LIST.forEach(nv=>m[nv]=arr.filter(d=>d.nivel===nv));return m;
-    }
-    const inicioByNivel=byNivel(activosInicialesActive);
-    const finalByNivel=byNivel(activosFinales);
-    const maxCount=Math.max(1,...NIVEL_LIST.map(nv=>Math.max((inicioByNivel[nv]||[]).length,(finalByNivel[nv]||[]).length)));
+    const W=Math.max(420,el.offsetWidth||600),H=220;
+    const lx=80,lw=44,rx=W-124,rw=44;
+    const tpad=28,bpad=40,gap=4;
+    const chartH=H-tpad-bpad;
+    const totalI=activosInicialesActive.length,totalF=activosFinales.length;
+    const maxTotal=Math.max(totalI,totalF,1);
 
-    function makeNivelSquares(byNiv,label,totalCands){
-      const wrap=document.createElement('div');
-      wrap.style.cssText='flex:1;min-width:220px;';
-      const hdr=document.createElement('div');
-      hdr.style.cssText='font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;text-align:center;';
-      const tot=NIVEL_LIST.reduce((s,nv)=>s+(byNiv[nv]||[]).length,0);
-      hdr.textContent=`${label} — ${tot} activos`;
-      wrap.appendChild(hdr);
-      const grid=document.createElement('div');
-      grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;';
-      NIVEL_LIST.forEach(nv=>{
-        const cands=byNiv[nv]||[];
-        const cnt=cands.length;
-        const side=cnt>0?Math.max(20,Math.round(MAX_SIDE*Math.sqrt(cnt/maxCount))):0;
-        const nc=NIVEL_COLORS[nv]||'#888';
-        const cell=document.createElement('div');
-        cell.style.cssText='display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px;';
-        const sqWrap=document.createElement('div');
-        sqWrap.style.cssText=`width:${MAX_SIDE}px;height:${MAX_SIDE}px;display:flex;align-items:center;justify-content:center;`;
-        const sq=document.createElement('div');
-        sq.style.cssText=`width:${side}px;height:${side}px;background:${nc};border-radius:4px;opacity:0.85;cursor:${cnt>0?'pointer':'default'};transition:opacity .15s;`;
-        if(cnt>0){
-          const tipLines=cands.slice(0,10).map(d=>`<div style="padding:1px 0">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>`).join('');
-          const tipMore=cands.length>10?`<div style="color:var(--text-muted);margin-top:3px">+ ${cands.length-10} más</div>`:'';
-          const tipHtml=`<div style="font-weight:700;color:${nc};margin-bottom:5px">${nv} — ${cnt}</div>${tipLines}${tipMore}`;
-          sq.addEventListener('mouseenter',e=>{sq.style.opacity='1';const tip=document.getElementById('wf-tooltip');tip.innerHTML=tipHtml;tip.style.display='block';tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';});
-          sq.addEventListener('mousemove',e=>{const tip=document.getElementById('wf-tooltip');tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';});
-          sq.addEventListener('mouseleave',()=>{sq.style.opacity='0.85';document.getElementById('wf-tooltip').style.display='none';});
+    function byNv(arr){const m={};NIVEL_LIST.forEach(nv=>m[nv]=arr.filter(d=>d.nivel===nv));return m;}
+    const iByNv=byNv(activosInicialesActive),fByNv=byNv(activosFinales);
+
+    // Scale: height proportional to count vs maxTotal so both sides are comparable
+    function scaleH(n){return n>0?Math.max(6,Math.round((n/maxTotal)*chartH-(gap*(NIVEL_LIST.length-1)/NIVEL_LIST.length))):0;}
+
+    // Compute y positions for each nivel on each side
+    let iy=tpad,fy=tpad;
+    const lPos={},rPos={};
+    NIVEL_LIST.forEach(nv=>{
+      const ih=scaleH((iByNv[nv]||[]).length),fh=scaleH((fByNv[nv]||[]).length);
+      lPos[nv]={y:iy,h:ih,cands:iByNv[nv]||[]};
+      rPos[nv]={y:fy,h:fh,cands:fByNv[nv]||[]};
+      iy+=ih+gap;fy+=fh+gap;
+    });
+
+    const SVG='http://www.w3.org/2000/svg';
+    const svg=document.createElementNS(SVG,'svg');
+    svg.setAttribute('width',W);svg.setAttribute('height',H);svg.style.cssText='display:block;overflow:visible;';
+
+    function tipHtml(nv,nc,lc,rc){
+      const side=(arr,label)=>arr&&arr.length?`<div style="font-size:10px;color:var(--text-muted);margin:4px 0 2px">${label} (${arr.length})</div>`+arr.slice(0,6).map(d=>`<div style="font-size:10px;padding:1px 0">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>`).join('')+(arr.length>6?`<div style="color:var(--text-muted);font-size:10px">+ ${arr.length-6} más</div>`:''): '';
+      const delta=rc.length-lc.length;const ds=delta>=0?'+':'';const dc=delta>0?'#1A6B3A':delta<0?'#9B2335':'#8AA8A5';
+      return`<div style="font-weight:700;color:${nc};margin-bottom:4px">${nv} <span style="font-size:10px;color:${dc};font-family:DM Mono,monospace">${ds}${delta}</span></div>${side(lc,'Inicio')}${side(rc,'Final')}`;
+    }
+
+    function addTip(el,html){
+      el.style.cursor='pointer';
+      el.addEventListener('mouseenter',e=>{const t=document.getElementById('wf-tooltip');t.innerHTML=html;t.style.display='block';t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px';});
+      el.addEventListener('mousemove',moveWFTip);
+      el.addEventListener('mouseleave',hideWFTip);
+    }
+
+    // Draw bands first (behind bars)
+    NIVEL_LIST.forEach(nv=>{
+      const nc=NIVEL_COLORS[nv]||'#888';
+      const lp=lPos[nv],rp=rPos[nv];
+      if(!lp.h&&!rp.h)return;
+      const x1=lx+lw,y1t=lp.y,y1b=lp.y+lp.h;
+      const x2=rx,y2t=rp.y,y2b=rp.y+rp.h;
+      const mx=(x1+x2)/2;
+      const path=document.createElementNS(SVG,'path');
+      path.setAttribute('d',`M${x1} ${y1t} C${mx} ${y1t} ${mx} ${y2t} ${x2} ${y2t} L${x2} ${y2b} C${mx} ${y2b} ${mx} ${y1b} ${x1} ${y1b} Z`);
+      path.setAttribute('fill',nc);path.setAttribute('opacity','0.12');
+      addTip(path,tipHtml(nv,nc,lp.cands,rp.cands));
+      path.addEventListener('mouseenter',()=>path.setAttribute('opacity','0.28'));
+      path.addEventListener('mouseleave',()=>path.setAttribute('opacity','0.12'));
+      svg.appendChild(path);
+    });
+
+    // Draw bars + labels
+    NIVEL_LIST.forEach(nv=>{
+      const nc=NIVEL_COLORS[nv]||'#888';
+      const lp=lPos[nv],rp=rPos[nv];
+      const th=tipHtml(nv,nc,lp.cands,rp.cands);
+
+      // Left bar
+      if(lp.h>0){
+        const r=document.createElementNS(SVG,'rect');
+        r.setAttribute('x',lx);r.setAttribute('y',lp.y);r.setAttribute('width',lw);r.setAttribute('height',lp.h);
+        r.setAttribute('rx','3');r.setAttribute('fill',nc);r.setAttribute('opacity','0.9');
+        addTip(r,th);svg.appendChild(r);
+        if(lp.h>=14){const t=document.createElementNS(SVG,'text');t.setAttribute('x',lx+lw/2);t.setAttribute('y',lp.y+lp.h/2+4);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','11');t.setAttribute('font-weight','700');t.setAttribute('fill','#fff');t.setAttribute('font-family','DM Mono,monospace');t.textContent=lp.cands.length;svg.appendChild(t);}
+        // nivel label left
+        const tl=document.createElementNS(SVG,'text');tl.setAttribute('x',lx-6);tl.setAttribute('y',lp.y+lp.h/2+4);tl.setAttribute('text-anchor','end');tl.setAttribute('font-size','10');tl.setAttribute('font-weight','600');tl.setAttribute('fill',nc);tl.setAttribute('font-family','DM Sans,sans-serif');tl.textContent=nv;svg.appendChild(tl);
+      }
+
+      // Right bar
+      if(rp.h>0){
+        const r=document.createElementNS(SVG,'rect');
+        r.setAttribute('x',rx);r.setAttribute('y',rp.y);r.setAttribute('width',rw);r.setAttribute('height',rp.h);
+        r.setAttribute('rx','3');r.setAttribute('fill',nc);r.setAttribute('opacity','0.9');
+        addTip(r,th);svg.appendChild(r);
+        if(rp.h>=14){const t=document.createElementNS(SVG,'text');t.setAttribute('x',rx+rw/2);t.setAttribute('y',rp.y+rp.h/2+4);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','11');t.setAttribute('font-weight','700');t.setAttribute('fill','#fff');t.setAttribute('font-family','DM Mono,monospace');t.textContent=rp.cands.length;svg.appendChild(t);}
+        // delta label right
+        const delta=rp.cands.length-lp.cands.length;
+        if(delta!==0){
+          const dc=delta>0?'#1A6B3A':'#9B2335';
+          const dt=document.createElementNS(SVG,'text');dt.setAttribute('x',rx+rw+7);dt.setAttribute('y',rp.y+rp.h/2+4);dt.setAttribute('font-size','10');dt.setAttribute('font-weight','700');dt.setAttribute('fill',dc);dt.setAttribute('font-family','DM Mono,monospace');dt.textContent=(delta>0?'+':'')+delta;svg.appendChild(dt);
         }
-        sqWrap.appendChild(sq);
-        const lbl=document.createElement('div');
-        lbl.style.cssText=`font-size:10px;font-weight:600;color:${nc};text-align:center;`;
-        lbl.textContent=`${nv} (${cnt})`;
-        cell.appendChild(sqWrap);cell.appendChild(lbl);
-        grid.appendChild(cell);
-      });
-      wrap.appendChild(grid);
-      return wrap;
-    }
+      }
+    });
 
-    const container=document.createElement('div');
-    container.style.cssText='display:flex;gap:0;align-items:flex-start;flex-wrap:wrap;';
-    container.appendChild(makeNivelSquares(inicioByNivel,'Inicio del período',activosInicialesActive));
+    // Column headers
+    [['Inicio del período',lx+lw/2,totalI],['Final del período',rx+rw/2,totalF]].forEach(([lbl,x,tot])=>{
+      const t=document.createElementNS(SVG,'text');t.setAttribute('x',x);t.setAttribute('y',tpad-10);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','10');t.setAttribute('font-weight','600');t.setAttribute('fill','var(--text-secondary)');t.setAttribute('font-family','DM Sans,sans-serif');t.textContent=`${lbl} (${tot})`;svg.appendChild(t);
+    });
 
-    const divider=document.createElement('div');
-    const delta=activosFinales.length-activosInicialesActive.length;
-    const deltaSign=delta>=0?'+':'';
-    const deltaColor=delta>=0?'#1A6B3A':'#9B2335';
-    divider.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 16px;min-width:60px;align-self:center;';
-    divider.innerHTML=`<div style="font-size:22px;color:var(--border)">→</div><div style="font-size:16px;font-weight:700;font-family:DM Mono,monospace;color:${deltaColor}">${deltaSign}${delta}</div><div style="font-size:9px;color:var(--text-muted);margin-top:2px">vs inicio</div>`;
-    container.appendChild(divider);
-    container.appendChild(makeNivelSquares(finalByNivel,'Final del período',activosFinales));
-    el.appendChild(container);
+    // Total delta at bottom
+    const totDelta=totalF-totalI,ds=totDelta>=0?'+':'',dc=totDelta>=0?'#1A6B3A':'#9B2335';
+    const tb=document.createElementNS(SVG,'text');tb.setAttribute('x',W/2);tb.setAttribute('y',H-8);tb.setAttribute('text-anchor','middle');tb.setAttribute('font-size','11');tb.setAttribute('font-weight','700');tb.setAttribute('fill',dc);tb.setAttribute('font-family','DM Mono,monospace');tb.textContent=`${ds}${totDelta} activos vs inicio del período`;svg.appendChild(tb);
+
+    el.appendChild(svg);
   })();
 
   // ── Descartados en el período ─────────────────────────────────────
@@ -940,15 +1017,7 @@ function renderMovimientos(){
   // ── Merged activity log ───────────────────────────────────────────
   const logEl=document.getElementById('merged-activity-log');logEl.innerHTML='';
   const allLogEntries=[];
-  // intra-stage movers (non-new, non-discarded, non-inactive, non-oferta updates in period)
-  const stageMovers=pipeData.filter(d=>{
-    if(newEntries.some(x=>x.item_id===d.item_id))return false;
-    if(descartadosInPeriod.some(x=>x.item_id===d.item_id))return false;
-    if(inactivosInPeriod.some(x=>x.item_id===d.item_id))return false;
-    if(ofertaRechazadaInPeriod.some(x=>x.item_id===d.item_id))return false;
-    if(contratadosInPeriod.some(x=>x.item_id===d.item_id))return false;
-    const upd=toDate(d.actualizado);return upd&&upd>=from&&upd<=to&&isActive(d);
-  });
+  // stageMovers already computed above (reuse)
   newEntries.forEach(d=>{const comment=getBestComment(d);allLogEntries.push({date:d.creado_en,cand:d.nombre,type:'ingreso',detail:`Ingresó al pipeline en <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>. Fuente: ${safe(d.fuente,'—')}.${comment?` <em>${comment.slice(0,100)}${comment.length>100?'…':''}</em>`:''}`,nivel:d.nivel});});
   stageMovers.forEach(d=>{allLogEntries.push({date:d.actualizado,cand:d.nombre,type:'movimiento',detail:`Actualizado en etapa <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>.`,nivel:d.nivel});});
   descartadosInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'descarte',detail:`Descartado en <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
@@ -972,9 +1041,16 @@ function renderMovimientos(){
 // ── Waterfall tooltip helpers ──────────────────────────────────────
 function showWFTip(e,b,cands){
   const tip=document.getElementById('wf-tooltip');
-  const names=cands.slice(0,6).map(d=>`<div style="padding:1px 0">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>`).join('');
-  const more=cands.length>6?`<div style="color:var(--text-muted);margin-top:3px">+ ${cands.length-6} más</div>`:'';
-  tip.innerHTML=`<div style="font-weight:700;color:${b.color};margin-bottom:5px">${b.lbl} ${b.sub} — ${(b.sign||'')+b.val}</div>${names}${more}`;
+  const nivelRows=NIVEL_LIST.map(nv=>{
+    const cnt=cands.filter(d=>d.nivel===nv).length;
+    if(!cnt)return'';
+    const nc=NIVEL_COLORS[nv]||'#888';
+    return`<div style="display:flex;align-items:center;gap:6px;padding:1px 0"><span style="width:7px;height:7px;border-radius:2px;background:${nc};display:inline-block;flex-shrink:0"></span><span style="font-weight:600;color:${nc};min-width:26px">${nv}</span><span style="color:var(--text-muted)">${cnt}</span></div>`;
+  }).filter(Boolean).join('');
+  const names=cands.slice(0,5).map(d=>{const nc=NIVEL_COLORS[d.nivel]||'#888';return`<div style="font-size:10px;padding:1px 0;color:var(--text-secondary)"><span style="font-weight:600;color:${nc}">[${safe(d.nivel,'?')}]</span> ${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div>`;}).join('');
+  const more=cands.length>5?`<div style="color:var(--text-muted);font-size:10px;margin-top:2px">+ ${cands.length-5} más</div>`:'';
+  const sep=cands.length?'<div style="border-top:1px solid var(--border);margin:5px 0"></div>':'';
+  tip.innerHTML=`<div style="font-weight:700;color:${b.color};margin-bottom:6px">${b.lbl} — ${(b.sign||'')+b.val}</div>${nivelRows}${sep}${names}${more}`;
   tip.style.display='block';
   tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';
 }
