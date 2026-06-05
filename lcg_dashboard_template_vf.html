@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -548,19 +548,15 @@ const descData=(typeof DESCARTADOS_DATA!=='undefined'?DESCARTADOS_DATA:[]).map(d
 const pipeData=(typeof PIPELINE_DATA!=='undefined'?PIPELINE_DATA:[]).map(d=>({...d,cat:getCat(d.razon)}));
 
 // Build comment lookup: item_id → best comment text
+// COMMENTS_DATA is pre-sorted newest-first by Python; first match per id wins
 const commentMap={};
 if(typeof COMMENTS_DATA!=='undefined'&&Array.isArray(COMMENTS_DATA)){
-  // group by item_id, keep latest non-empty
-  const grouped={};
   COMMENTS_DATA.forEach(c=>{
     const id=String(c.item_id||'');
     const txt=(c.comentario||c.comment||c.text||'').trim();
-    if(!txt)return;
-    if(!grouped[id]||new Date(c.creado_en||0)>new Date(grouped[id].creado_en||0)){
-      grouped[id]={txt,creado_en:c.creado_en};
-    }
+    if(!txt||commentMap[id])return;
+    commentMap[id]=txt;
   });
-  Object.keys(grouped).forEach(k=>commentMap[k]=grouped[k].txt);
 }
 // Index descartados reasons by item_id and nombre (descData has the rejection reason)
 const descReasonById={};
@@ -1068,7 +1064,7 @@ function renderMovimientos(){
   descartadosInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'descarte',detail:`Descartado en <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
   inactivosInPeriod.forEach(d=>{allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'inactivo',detail:`Pasado a <b>Inactivo</b> en etapa ${safe(d.grupo,'—')}.`,nivel:d.nivel});});
   ofertaRechazadaInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'oferta',detail:`Oferta rechazada en etapa <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
-  contratadosInPeriod.forEach(d=>{allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'contratado',detail:`✓ Contratado en etapa <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>.`,nivel:d.nivel});});
+  contratadosInPeriod.forEach(d=>{const cmt=getBestComment(d);allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'contratado',detail:`✓ Contratado en etapa <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>.`+(cmt?` <em>${cmt.slice(0,120)}${cmt.length>120?'…':''}</em>`:''),nivel:d.nivel});});
   allLogEntries.sort((a,b)=>(toDate(b.date)||0)-(toDate(a.date)||0));
   if(!allLogEntries.length){logEl.innerHTML=emptyState('Sin actividad en el período seleccionado');return;}
   const TC={ingreso:{bg:'#E8F5EE',c:'#1A6B3A',lbl:'INGRESO'},movimiento:{bg:'#EAF2F0',c:'#004A43',lbl:'MOVIM.'},descarte:{bg:'#FDECEA',c:'#9B2335',lbl:'DESCARTE'},inactivo:{bg:'#FEF4E5',c:'#8B5A00',lbl:'INACTIVO'},oferta:{bg:'#FCE8E8',c:'#C04040',lbl:'OF.RECH.'},contratado:{bg:'#D6F0E0',c:'#1A6B3A',lbl:'CONTRATADO'}};
