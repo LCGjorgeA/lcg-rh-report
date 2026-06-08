@@ -425,6 +425,15 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
     <div id="tl-controls-desc" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;"></div>
     <div id="weekly-desc"></div>
   </div>
+
+  <div class="section-label">Comentarios sin clasificar — no coinciden con ninguna categoría</div>
+  <div class="card" id="unclassified-card">
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:1rem;line-height:1.6;">
+      Estos candidatos tienen un último comentario que <strong>no encajó en ninguna categoría</strong> configurada.
+      Revisa los textos y agrega palabras clave en <a href="config.html" target="_blank" style="color:var(--lcg-mid);text-decoration:none;font-weight:600;">Configuración</a> para clasificarlos.
+    </div>
+    <div id="unclassified-list"></div>
+  </div>
 </div>
 
 <!-- ═══ TAB 4: TIMELINE ═══ -->
@@ -1259,7 +1268,7 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,contr
   const topStage=Object.entries(stageCts).sort((a,b)=>b[1]-a[1])[0];
 
   [{label:'Total descartados',val:total,sub:'Período completo',dark:true},
-   {label:'Con razón documentada',val:descData.filter(d=>d.razon&&d.razon.trim().length>3).length,sub:Math.round(descData.filter(d=>d.razon&&d.razon.trim().length>3).length/total*100)+'% documentados',accent:true},
+   {label:'Con razón documentada',val:descData.filter(d=>bestTextForCat(d).trim().length>3).length,sub:Math.round(descData.filter(d=>bestTextForCat(d).trim().length>3).length/total*100)+'% documentados',accent:true},
    {label:'Con Pyxoom',val:conPyx,sub:Math.round(conPyx/total*100)+'% con prueba'},
    {label:'Días prom. pipeline',val:avgDias!=null?avgDias:'—',sub:'Antes de descarte'},
    {label:'Etapa más crítica',val:topStage?stageAbr(topStage[0]):'—',sub:topStage?(topStage[1]+' descartes'):''},
@@ -1277,7 +1286,7 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,contr
 
   // Decisor bars
   const dec=[{name:'Jaime',n:0,c:'#1A56A0'},{name:'Fray',n:0,c:'#5B3DBF'},{name:'Fer',n:0,c:'#8B2252'}];
-  descData.forEach(d=>{const r=(d.razon||'').toLowerCase();if(r.includes('jaime'))dec[0].n++;if(r.includes('fray'))dec[1].n++;if((r.includes('fer no')||r.includes('fer lo')||r.includes('a fer'))&&!r.includes('fernando'))dec[2].n++;});
+  descData.forEach(d=>{const r=bestTextForCat(d).toLowerCase();if(r.includes('jaime'))dec[0].n++;if(r.includes('fray'))dec[1].n++;if((r.includes('fer no')||r.includes('fer lo')||r.includes('a fer'))&&!r.includes('fernando'))dec[2].n++;});
   const maxD=Math.max(...dec.map(d=>d.n),1);
   dec.filter(d=>d.n>0).forEach(d=>{document.getElementById('decisor-bars').innerHTML+=`<div class="bar-row"><div class="bar-label">${d.name}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(d.n/maxD*100)}%;background:${d.c}"></div></div><div class="bar-count">${d.n}</div></div>`;});
 
@@ -1367,7 +1376,7 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,contr
       items.forEach(d=>{
         const c=document.createElement('div');c.className='chip';
         const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888',abr=stageAbr(d.grupo);
-        const razonRaw=d.razon&&d.razon.trim()?d.razon:'Sin razón documentada';
+        const razonRaw=bestTextForCat(d)||'Sin razón documentada';
         const shortR=razonRaw.length>60?razonRaw.slice(0,58)+'…':razonRaw;
         const catColor=(d.cat&&d.cat.color)||'#888';const catName=(d.cat&&d.cat.name)||'—';
         c.innerHTML=`<div class="chip-dot" style="background:${catColor}"></div><span class="chip-badge" style="background:${sc}18;color:${sc}">${abr}</span><span style="color:${nc};font-size:9px;font-weight:700;margin-top:1px;">${safe(d.nivel,'—')}</span><span class="chip-text"><b>${safe(d.candidato||d.nombre,'—').split(' ').slice(0,2).join(' ')}</b> · ${shortR}</span>`;
@@ -1378,6 +1387,61 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,contr
     });
   }
   renderDescTimeline();
+
+  // ── Unclassified comments ─────────────────────────────────────────
+  (function(){
+    const unclassed=descData.filter(d=>!d.cat||d.cat.id==='other'||d.cat.id==='sin_razon');
+    const el=document.getElementById('unclassified-list');
+    if(!el)return;
+
+    // Summary header
+    const pct=total?Math.round(unclassed.length/total*100):0;
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;flex-wrap:wrap;">
+      <div style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${unclassed.length?'#9B2335':'#1A6B3A'}">${unclassed.length}</div>
+      <div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">candidato${unclassed.length!==1?'s':''} sin clasificar<br><span style="color:var(--text-muted)">${pct}% del total descartado</span></div>
+      ${unclassed.length===0?'<div style="font-size:11px;font-weight:600;color:#1A6B3A;margin-left:auto">✓ Todos clasificados</div>':''}
+    </div>`;
+
+    if(!unclassed.length)return;
+
+    // Group: "other" (had comment but no keyword matched) vs "sin_razon" (no comment at all)
+    const hasText=unclassed.filter(d=>d.cat&&d.cat.id==='other');
+    const noText=unclassed.filter(d=>!d.cat||d.cat.id==='sin_razon');
+
+    function makeRows(items, groupLabel, groupColor){
+      if(!items.length)return;
+      el.innerHTML+=`<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${groupColor};margin:1rem 0 .5rem;">${groupLabel} (${items.length})</div>`;
+      // Sort newest discard first
+      [...items].sort((a,b)=>{
+        const da=toDate(a.fecha_descarte||a.actualizado)||new Date(0);
+        const db=toDate(b.fecha_descarte||b.actualizado)||new Date(0);
+        return db-da;
+      }).forEach(d=>{
+        const nc=NIVEL_COLORS[d.nivel]||'#888';
+        const sc=stageColor(d.grupo);
+        const abr=stageAbr(d.grupo);
+        const name=safe(d.candidato||d.nombre,'—');
+        const txt=bestTextForCat(d)||'—';
+        const dateStr=fmtShort(d.fecha_descarte||d.actualizado);
+        el.innerHTML+=`<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #F0EBE6;align-items:flex-start;">
+          <div style="flex-shrink:0;padding-top:2px">
+            <span style="font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:20px;background:${sc}18;color:${sc};white-space:nowrap;">${abr}</span>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+              <span style="font-size:12px;font-weight:600;color:var(--text-primary)">${name}</span>
+              <span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:10px;background:${nc}18;color:${nc};text-transform:uppercase;">${safe(d.nivel,'—')}</span>
+              <span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-left:auto">${dateStr}</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5;font-style:${txt==='—'?'italic':'normal'};background:#F7F4F1;border-radius:6px;padding:5px 9px;word-break:break-word;">${txt}</div>
+          </div>
+        </div>`;
+      });
+    }
+
+    makeRows(hasText, 'Tienen comentario — ninguna palabra clave coincidió', '#8A7A70');
+    makeRows(noText,  'Sin comentario registrado', '#9A9A9A');
+  })();
 
   // ── Descartados by week — stacked by reason category ─────────────
   (function(){
@@ -1450,7 +1514,7 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,contr
           h+=`<div style="margin-bottom:4px"><div style="display:flex;align-items:center;gap:5px;margin-bottom:2px"><span style="width:8px;height:8px;border-radius:2px;background:${seg.cat.color};display:inline-block;flex-shrink:0"></span><span style="font-size:10px;font-weight:600;color:${seg.cat.color}">${seg.cat.name} (${seg.cands.length})</span></div>`;
           seg.cands.slice(0,4).forEach(d=>{
             const nc=NIVEL_COLORS[d.nivel]||'#888';
-            const razon=(d.razon||'').trim();
+            const razon=bestTextForCat(d).trim();
             const razonShort=razon.length>55?razon.slice(0,53)+'…':razon;
             h+=`<div style="font-size:10px;color:var(--text-secondary);padding-left:13px;margin-bottom:2px">· ${safe(d.candidato||d.nombre,'—').split(' ').slice(0,3).join(' ')} <span style="color:${nc};font-weight:600">${safe(d.nivel,'')}</span>${razonShort?`<div style="font-size:9px;color:var(--text-muted);font-style:italic;padding-left:8px;line-height:1.3">${razonShort}</div>`:''}</div>`;
           });
