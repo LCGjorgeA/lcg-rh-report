@@ -457,7 +457,7 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
     <div class="section-label">Inactivos por etapa del pipeline</div>
     <div class="pipeline-wrap"><div class="pipeline-track" id="pipeline-inact"></div></div>
     <div class="grid2">
-      <div class="card" style="margin-bottom:0"><div class="card-title">Razón de inactividad — clasificación automática</div><div id="inact-cat-bars"></div></div>
+      <div class="card" style="margin-bottom:0"><div class="card-title">Etapa al momento de inactividad</div><div id="inact-stage-bars"></div></div>
       <div class="card" style="margin-bottom:0">
         <div class="card-title">Fuente de candidatos inactivos</div><div id="inact-fuente-bars"></div>
         <div style="margin-top:1.25rem"><div class="card-title">Nivel de candidatos inactivos</div><div id="inact-nivel-bars"></div></div>
@@ -466,8 +466,12 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
     <div style="margin-bottom:1.5rem"></div>
     <div class="section-label">Entrevistador / recruiter con más inactivos</div>
     <div class="card" style="margin-bottom:1.25rem"><div id="inact-entrevistador-bars"></div></div>
-    <div class="section-label">Candidatos inactivos recientes — candidatos a reactivar</div>
-    <div id="inact-recommendations"></div>
+    <div class="section-label">Días en pipeline antes de quedar inactivo</div>
+    <div class="card" style="margin-bottom:1.5rem">
+      <div style="overflow-x:auto"><canvas id="inact-dias-canvas" style="display:block;width:100%;max-width:640px;height:170px"></canvas></div>
+    </div>
+    <div class="section-label">Candidatos con más tiempo sin movimiento — ordenados por días acumulados</div>
+    <div id="inact-stalled"></div>
     <div class="section-label">Timeline semanal de inactivos — más reciente primero</div>
     <div class="card">
       <div id="tl-controls-inact" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;"></div>
@@ -1769,7 +1773,7 @@ function renderInactivos(){
 
   if(!total){
     kpiEl.innerHTML='<div class="kpi dark"><div class="kpi-label">Total inactivos</div><div class="kpi-value">0</div><div class="kpi-sub">Sin datos</div></div>';
-    ['pipeline-inact','inact-cat-bars','inact-fuente-bars','inact-nivel-bars','inact-entrevistador-bars','inact-recommendations','weekly-inact','inact-tbody'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=emptyState('Sin candidatos inactivos');});
+    ['pipeline-inact','inact-stage-bars','inact-fuente-bars','inact-nivel-bars','inact-entrevistador-bars','inact-stalled','weekly-inact','inact-tbody'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=emptyState('Sin candidatos inactivos');});
     return;
   }
 
@@ -1790,12 +1794,10 @@ function renderInactivos(){
   const pt=document.getElementById('pipeline-inact');
   if(pt){pt.innerHTML='';STAGES.forEach((s,i)=>{const cnt=inactData.filter(d=>d.grupo&&d.grupo.includes(s)).length;if(!cnt)return;const el=document.createElement('div');el.className='ps';el.innerHTML=`<div class="ps-inner" style="background:${STAGE_COLORS[i]}18"><div class="ps-name">${s}</div><div class="ps-count" style="color:${STAGE_COLORS[i]}">${cnt}</div><div class="ps-pct">${Math.round(cnt/total*100)}%</div></div>`;pt.appendChild(el);});}
 
-  // Category bars
-  const catCts={};CATS.forEach(c=>catCts[c.id]=0);
-  inactData.forEach(d=>{const cid=d.cat&&d.cat.id?d.cat.id:'other';catCts[cid]=(catCts[cid]||0)+1;});
-  const catS=CATS.map(c=>({...c,label:c.name,value:catCts[c.id]||0})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
-  const icbEl=document.getElementById('inact-cat-bars');
-  if(icbEl){icbEl.innerHTML='';if(catS.length)buildBars('inact-cat-bars',catS,Math.max(...catS.map(c=>c.value),1),d=>d.color||'#888');else icbEl.innerHTML=emptyState('Sin clasificación');}
+  // Stage bars — where candidates were when they went inactive
+  const stageBarsData=STAGES.map((s,i)=>({label:s,value:stageCts[s]||0,color:STAGE_COLORS[i]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
+  const isbEl=document.getElementById('inact-stage-bars');
+  if(isbEl){isbEl.innerHTML='';if(stageBarsData.length)buildBars('inact-stage-bars',stageBarsData,Math.max(...stageBarsData.map(c=>c.value),1),d=>d.color||'#888');else isbEl.innerHTML=emptyState('Sin datos de etapa');}
 
   // Fuente bars
   const fCts={};inactData.forEach(d=>{const f=(d.fuente||'Sin fuente').trim()||'Sin fuente';fCts[f]=(fCts[f]||0)+1;});
@@ -1815,28 +1817,66 @@ function renderInactivos(){
   const iebEl=document.getElementById('inact-entrevistador-bars');
   if(iebEl){iebEl.innerHTML='';if(eS.length)buildBars('inact-entrevistador-bars',eS,Math.max(...eS.map(x=>x.value),1),()=>'#5B3DBF');else iebEl.innerHTML=emptyState('Sin datos de entrevistadores');}
 
-  // Recommendation cards
-  const recEl=document.getElementById('inact-recommendations');
-  if(recEl){
-    recEl.innerHTML='';
-    const recent=[...inactData].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0)).slice(0,6);
-    const wrap=document.createElement('div');
-    wrap.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:1.5rem;';
-    recent.forEach(d=>{
-      const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
-      const cmt=bestTextForCat(d)||'';
-      const card=document.createElement('div');
-      card.style.cssText=`background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;border-top:3px solid ${nc};`;
-      card.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <div style="flex:1;font-size:13px;font-weight:600;color:var(--text-primary)">${safe(d.nombre)}</div>
-        <span style="background:${nc}18;color:${nc};font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span>
-      </div>
-      <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px">${safe(d.grupo,'—')} · ${fmt(d.actualizado||d.creado_en)}</div>
-      ${cmt?`<div style="font-size:11px;color:var(--text-secondary);background:#F7F4F1;border-radius:6px;padding:6px 9px;line-height:1.5">${cmt.slice(0,120)}${cmt.length>120?'…':''}</div>`:'<div style="font-size:11px;color:var(--text-muted);font-style:italic">Sin comentario registrado</div>'}
-      <div style="margin-top:10px;font-size:10px;font-weight:600;color:var(--lcg-mid)">💡 Verificar disponibilidad y revisar bloqueo</div>`;
-      wrap.appendChild(card);
+  // Days-in-pipeline histogram
+  const diasC=document.getElementById('inact-dias-canvas');
+  if(diasC){
+    const W=diasC.parentElement.offsetWidth||640,H=170;
+    diasC.width=W;diasC.height=H;
+    const diasV=inactData.filter(d=>d.dias_pipeline!=null).map(d=>d.dias_pipeline).sort((a,b)=>a-b);
+    const ctx=diasC.getContext('2d'),pad=36,bsz=7;
+    ctx.clearRect(0,0,W,H);
+    if(diasV.length){
+      const bins=Array(12).fill(0);diasV.forEach(v=>{const b=Math.min(11,Math.max(0,Math.floor(v/bsz)));bins[b]++;});
+      const maxB=Math.max(...bins,1),med=diasV[Math.floor(diasV.length/2)];
+      const chartW=W-pad-16;const bW=chartW/bins.length;
+      bins.forEach((v,i)=>{if(!v)return;const x=pad+i*bW,bH=(v/maxB)*(H-pad-12);
+        const days=i*bsz;ctx.fillStyle=days>30?'#9B2335':days>14?'#B05A00':'#00B880';ctx.globalAlpha=.85;
+        ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x+1,H-pad-bH,Math.max(bW-2,1),bH,3);else ctx.rect(x+1,H-pad-bH,Math.max(bW-2,1),bH);
+        ctx.fill();ctx.globalAlpha=1;
+        if(bW>14){ctx.fillStyle='#004A43';ctx.font='bold 8px DM Mono,monospace';ctx.textAlign='center';ctx.fillText(v,x+bW/2,H-pad-bH-3);}
+      });
+      const mx=pad+(med/bsz)*bW;ctx.strokeStyle='#004A43';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(mx,8);ctx.lineTo(mx,H-pad);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#004A43';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='left';ctx.fillText(`Mediana: ${med}d`,mx+3,15);
+      [0,7,14,28,56,77].forEach(v=>{ctx.fillStyle='#8AA8A5';ctx.font='9px DM Mono,monospace';ctx.textAlign='center';
+        const xp=pad+(v/bsz)*bW;if(xp<=W-8)ctx.fillText(v+'d',xp,H-4);});
+      ctx.strokeStyle='#D4E8E5';ctx.lineWidth=1;ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(pad,H-pad);ctx.lineTo(W-8,H-pad);ctx.stroke();
+    }else{ctx.fillStyle='#8AA8A5';ctx.font='12px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('Sin datos de días en pipeline',W/2,H/2);}
+  }
+
+  // Stalled candidates — ranked by most days in pipeline, then oldest last-update
+  const stalledEl=document.getElementById('inact-stalled');
+  if(stalledEl){
+    stalledEl.innerHTML='';
+    const sorted=[...inactData].sort((a,b)=>{
+      const da=a.dias_pipeline??-1,db=b.dias_pipeline??-1;
+      if(db!==da)return db-da;
+      return(toDate(a.actualizado||a.creado_en)||0)-(toDate(b.actualizado||b.creado_en)||0);
     });
-    recEl.appendChild(wrap);
+    const wrap=document.createElement('div');
+    wrap.style.cssText='background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:1.5rem;';
+    const hdr=document.createElement('div');
+    hdr.style.cssText='display:grid;grid-template-columns:28px 1fr 110px 64px 72px 56px;gap:8px;padding:8px 14px;border-bottom:2px solid var(--border);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);background:#FAFAF9;';
+    hdr.innerHTML='<div>#</div><div>Candidato</div><div>Etapa</div><div>Nivel</div><div>Última act.</div><div style="text-align:right">Días</div>';
+    wrap.appendChild(hdr);
+    sorted.slice(0,20).forEach((d,i)=>{
+      const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
+      const diasVal=d.dias_pipeline!=null?d.dias_pipeline:null;
+      const diasColor=diasVal==null?'var(--text-muted)':diasVal>60?'#9B2335':diasVal>30?'#B05A00':'#1A6B3A';
+      const row=document.createElement('div');
+      row.style.cssText=`display:grid;grid-template-columns:28px 1fr 110px 64px 72px 56px;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border);align-items:center;background:${i%2?'#FAFAF9':'#fff'};cursor:default;`;
+      row.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--text-muted)">${i+1}</div>
+        <div style="font-size:12px;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${safe(d.nombre,'—')}</div>
+        <div><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:${sc}18;color:${sc};white-space:nowrap">${safe(d.grupo,'—')}</span></div>
+        <div><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span></div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted)">${fmtShort(d.actualizado||d.creado_en)}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${diasColor};text-align:right">${diasVal!=null?diasVal+'d':'—'}</div>`;
+      const cmt=getBestComment(d);
+      row.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:4px">${safe(d.nombre,'—')}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo,'—')} · Nivel <span style="color:${nc}">${safe(d.nivel,'—')}</span></div><div style="font-size:10px;color:#8AA8A5;margin-top:2px">Última actividad: ${fmt(d.actualizado||d.creado_en)}</div>${cmt?`<div style="font-size:11px;color:#CBD5D4;margin-top:5px;border-top:1px solid rgba(255,255,255,.1);padding-top:5px">${cmt}</div>`:''}`));
+      row.addEventListener('mousemove',moveTip);row.addEventListener('mouseleave',hideTip);
+      wrap.appendChild(row);
+    });
+    if(sorted.length>20){const more=document.createElement('div');more.style.cssText='padding:8px 14px;font-size:11px;color:var(--text-muted);';more.textContent=`+ ${sorted.length-20} candidatos más…`;wrap.appendChild(more);}
+    stalledEl.appendChild(wrap);
   }
 
   // Weekly timeline
