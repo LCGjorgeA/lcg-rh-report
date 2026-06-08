@@ -2672,16 +2672,21 @@ const FUENTE_PALETTE=['#3B7A70','#1A56A0','#5B3DBF','#8B2252','#B05A00','#7B5800
 let _fuenteColorMap={};
 let _fuenteSortedKeys=[];
 let _fuenteActiveView='all';
+let _allCands=[];
 
 (function initFuentesFilters(){
-  const allSources=[...new Set(pipeData.map(d=>(d.fuente||'Sin fuente').trim()||'Sin fuente'))].sort();
+  // Merge pipeData + descData — descartados may only live in DESCARTADOS_DATA
+  const _pIds=new Set(pipeData.map(d=>String(d.item_id||'')).filter(Boolean));
+  _allCands=[...pipeData,...descData.filter(d=>!_pIds.has(String(d.item_id||'')))];
+
+  const allSources=[...new Set(_allCands.map(d=>(d.fuente||'Sin fuente').trim()||'Sin fuente'))].sort();
   const sfEl=document.getElementById('fuentes-filter-source');
   if(sfEl)allSources.forEach(f=>{
     const b=document.createElement('button');b.className='filter-btn';b.textContent=f;b.dataset.val=f;
     b.onclick=()=>{b.classList.toggle('on');if(document.querySelector('#tab-analisis.active'))renderFuentes();};
     sfEl.appendChild(b);
   });
-  const usedNiv=NIVEL_LIST.filter(n=>pipeData.some(d=>d.nivel===n));
+  const usedNiv=NIVEL_LIST.filter(n=>_allCands.some(d=>d.nivel===n));
   const nfEl=document.getElementById('fuentes-filter-nivel');
   if(nfEl)usedNiv.forEach(n=>{
     const b=document.createElement('button');b.className='filter-btn';b.textContent=n;b.dataset.val=n;
@@ -2689,7 +2694,7 @@ let _fuenteActiveView='all';
     b.onclick=()=>{b.classList.toggle('on');if(document.querySelector('#tab-analisis.active'))renderFuentes();};
     nfEl.appendChild(b);
   });
-  const allRec=[...new Set(pipeData.map(d=>d.entrevistador||'').filter(Boolean))].sort();
+  const allRec=[...new Set(_allCands.map(d=>d.entrevistador||'').filter(Boolean))].sort();
   const rfEl=document.getElementById('fuentes-filter-reclutador');
   if(rfEl)allRec.slice(0,14).forEach(r=>{
     const b=document.createElement('button');b.className='filter-btn';b.textContent=r;b.dataset.val=r;
@@ -2746,7 +2751,7 @@ function renderFuentes(){
   const selN=new Set([...document.querySelectorAll('#fuentes-filter-nivel .filter-btn.on')].map(b=>b.dataset.val));
   const selR=new Set([...document.querySelectorAll('#fuentes-filter-reclutador .filter-btn.on')].map(b=>b.dataset.val));
 
-  const data=pipeData.filter(d=>{
+  const data=_allCands.filter(d=>{
     const dc=toDate(d.creado_en);
     if(dateFrom&&dc&&dc<dateFrom)return false;
     if(dateTo&&dc){const dte=new Date(dateTo);dte.setDate(dte.getDate()+1);if(dc>=dte)return false;}
@@ -2826,6 +2831,7 @@ function renderFuentes(){
   const funnelEl=document.getElementById('fuentes-funnel');funnelEl.innerHTML='';
   if(!fSort.length){funnelEl.innerHTML=emptyState('Sin datos');}
   else{
+    const maxFTotal=Math.max(...fSort.map(([,g])=>g.all.length),1);
     fSort.forEach(([f,g])=>{
       if(!g.all.length)return;
       const byStageIdx={};g.all.forEach(d=>{const i=stageIdx(d.grupo);if(i>=0)byStageIdx[i]=(byStageIdx[i]||0)+1;});
@@ -2833,6 +2839,7 @@ function renderFuentes(){
       row.innerHTML=`<div class="funnel-stage-lbl" style="color:${fc(f)};font-weight:600;overflow:hidden;text-overflow:ellipsis" title="${f}">${f}</div>`;
       const outer=document.createElement('div');outer.className='funnel-bar-outer';
       const track=document.createElement('div');track.className='funnel-bar-track';
+      track.style.width=Math.max(8,Math.round(g.all.length/maxFTotal*100))+'%';
       STAGES.forEach((s,i)=>{
         const cnt=byStageIdx[i]||0;if(!cnt)return;
         const pct=Math.max(2,Math.round(cnt/g.all.length*100));
@@ -2868,13 +2875,25 @@ function renderFuentes(){
       const cnts=usedStgs.map(s=>g.all.filter(d=>d.grupo&&d.grupo.includes(s)).length);
       const mx=Math.max(...cnts,1);
       t+=`<tr><td class="row-lbl" style="border-left:3px solid ${fc(f)}">${f}</td>`;
-      cnts.forEach((c,i)=>{const inten=c>0?(0.15+(c/mx)*0.55):0;const bg=c>0?hexToRgba(STAGE_COLORS[i],inten):'transparent';t+=`<td style="background:${bg};color:${c>0?STAGE_COLORS[i]:'#D4E8E5'}" title="${f} → ${usedStgs[i]}: ${c}">${c||'·'}</td>`;});
+      cnts.forEach((c,i)=>{const inten=c>0?(0.15+(c/mx)*0.55):0;const bg=c>0?hexToRgba(STAGE_COLORS[i],inten):'transparent';t+=`<td data-f="${encodeURIComponent(f)}" data-si="${i}" style="background:${bg};color:${c>0?STAGE_COLORS[i]:'#D4E8E5'};cursor:${c>0?'pointer':'default'}">${c||'·'}</td>`;});
       t+=`<td style="font-weight:700;color:var(--lcg-dark)">${g.all.length}</td></tr>`;
     });
     const totRow=usedStgs.map(s=>data.filter(d=>d.grupo&&d.grupo.includes(s)).length);
     t+=`<tr><td class="row-lbl" style="font-weight:700;color:var(--lcg-dark)">Total</td>${totRow.map(c=>`<td style="font-weight:700;color:var(--lcg-dark)">${c||'·'}</td>`).join('')}<td style="font-weight:700;color:var(--lcg-dark)">${total}</td></tr>`;
     t+='</tbody></table>';
     hmStgEl.innerHTML=t;
+    // Hover: show nivel breakdown for each fuente×etapa cell
+    hmStgEl.querySelectorAll('td[data-f]').forEach(td=>{
+      td.addEventListener('mouseenter',e=>{
+        const f2=decodeURIComponent(td.dataset.f),si=parseInt(td.dataset.si);
+        const s=usedStgs[si],g2=byF[f2];if(!g2||!s)return;
+        const cands=g2.all.filter(d=>d.grupo&&d.grupo.includes(s));if(!cands.length)return;
+        let h=`<div style="font-weight:600;color:#A9F6E8">${f2}</div><div style="color:${STAGE_COLORS[STAGES.indexOf(s)]||'#888'};font-weight:600;margin:3px 0">${s}: ${cands.length}</div>`;
+        NIVEL_LIST.forEach(n=>{const cnt=cands.filter(d=>d.nivel===n).length;if(!cnt)return;h+=`<div style="color:${NIVEL_COLORS[n]};font-size:10px">· ${n}: ${cnt} (${Math.round(cnt/cands.length*100)}%)</div>`;});
+        showTip(e,h);
+      });
+      td.addEventListener('mousemove',moveTip);td.addEventListener('mouseleave',hideTip);
+    });
   }
 
   // ── G. Heatmap: Fuente × Nivel ──────────────────────────────
@@ -2886,16 +2905,29 @@ function renderFuentes(){
     fSort.forEach(([f,g])=>{
       if(!g.all.length)return;
       t+=`<tr><td class="row-lbl" style="border-left:3px solid ${fc(f)}">${f}</td>`;
-      usedNiv.forEach(n=>{const c=g.all.filter(d=>d.nivel===n).length;const pct=g.all.length>0?c/g.all.length:0;const bg=c>0?hexToRgba(NIVEL_COLORS[n],0.1+pct*0.6):'transparent';t+=`<td style="background:${bg};color:${c>0?NIVEL_COLORS[n]:'#D4E8E5'}" title="${f} · ${n}: ${c}">${c||'·'}</td>`;});
+      usedNiv.forEach(n=>{const c=g.all.filter(d=>d.nivel===n).length;const pct=g.all.length>0?c/g.all.length:0;const bg=c>0?hexToRgba(NIVEL_COLORS[n],0.1+pct*0.6):'transparent';t+=`<td data-f="${encodeURIComponent(f)}" data-n="${encodeURIComponent(n)}" style="background:${bg};color:${c>0?NIVEL_COLORS[n]:'#D4E8E5'};cursor:${c>0?'pointer':'default'}">${c||'·'}</td>`;});
       t+=`<td style="font-weight:700;color:var(--lcg-dark)">${g.all.length}</td></tr>`;
     });
     t+='</tbody></table>';
     hmNivEl.innerHTML=t;
+    // Hover: show etapa breakdown for each fuente×nivel cell
+    hmNivEl.querySelectorAll('td[data-f]').forEach(td=>{
+      td.addEventListener('mouseenter',e=>{
+        const f2=decodeURIComponent(td.dataset.f),n=decodeURIComponent(td.dataset.n);
+        const g2=byF[f2];if(!g2)return;
+        const cands=g2.all.filter(d=>d.nivel===n);if(!cands.length)return;
+        let h=`<div style="font-weight:600;color:#A9F6E8">${f2}</div><div style="color:${NIVEL_COLORS[n]};font-weight:600;margin:3px 0">${n}: ${cands.length}</div>`;
+        STAGES.forEach((s,i)=>{const cnt=cands.filter(d=>d.grupo&&d.grupo.includes(s)).length;if(!cnt)return;h+=`<div style="color:${STAGE_COLORS[i]};font-size:10px">· ${stageAbr(s)}: ${cnt} (${Math.round(cnt/cands.length*100)}%)</div>`;});
+        showTip(e,h);
+      });
+      td.addEventListener('mousemove',moveTip);td.addEventListener('mouseleave',hideTip);
+    });
   }
 
   // ── H. Attrition Analysis ───────────────────────────────────
-  function buildAttrBars(elId,sortedPairs,valFn,color,totalFn){
+  function buildAttrBars(elId,sortedPairs,valFn,color){
     const el=document.getElementById(elId);if(!el)return;
+    el.innerHTML='';
     const filtered=sortedPairs.filter(([,g])=>valFn(g)>0);
     if(!filtered.length){el.innerHTML=emptyState('Sin datos en el período');return;}
     const mx=Math.max(...filtered.map(([,g])=>valFn(g)),1);
@@ -2912,10 +2944,33 @@ function renderFuentes(){
   buildAttrBars('fuentes-inac-bars',inacSort,g=>g.inac.length,'#B05A00');
   buildAttrBars('fuentes-or-bars',orSort,g=>g.or.length,'#7B5800');
 
+  // Loss rate — stacked bar showing desc / inac / oferta composition
+  const COL_DESC='#D94040',COL_INAC='#E08020',COL_OR='#A06820';
   const lossEl=document.getElementById('fuentes-lossrate-bars');lossEl.innerHTML='';
-  const lossData=fSort.filter(([,g])=>g.all.length>=2).map(([f,g])=>{const lost=g.desc.length+g.inac.length+g.or.length;return{f,lost,rate:g.all.length>0?lost/g.all.length:0,total:g.all.length};}).sort((a,b)=>b.rate-a.rate);
+  const lossData=fSort.filter(([,g])=>g.all.length>=2).map(([f,g])=>{
+    const d=g.desc.length,i=g.inac.length,o=g.or.length,lost=d+i+o,tot=g.all.length;
+    return{f,d,i,o,lost,rate:tot>0?lost/tot:0,total:tot};
+  }).sort((a,b)=>b.rate-a.rate);
   if(!lossData.length){lossEl.innerHTML=emptyState('Sin datos suficientes (mín. 2 candidatos por fuente)');}
-  else{const mr=lossData[0].rate||0.01;lossData.forEach(d=>{const p=Math.round(d.rate/mr*100);const col=d.rate>=0.6?'#9B2335':d.rate>=0.35?'#8B5A00':'#4A6462';lossEl.innerHTML+=`<div class="bar-row"><div class="bar-label" title="${d.f}">${d.f}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(p,1)}%;background:${col}"></div></div><div class="bar-count" style="width:72px;text-align:right;color:${col}">${Math.round(d.rate*100)}% <span style="font-size:9px;color:var(--text-muted)">(${d.lost}/${d.total})</span></div></div>`;});}
+  else{
+    lossEl.innerHTML=`<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:10px;color:var(--text-secondary)">`+
+      `<div style="display:flex;align-items:center;gap:4px"><div style="width:9px;height:9px;border-radius:2px;background:${COL_DESC}"></div>Descartados</div>`+
+      `<div style="display:flex;align-items:center;gap:4px"><div style="width:9px;height:9px;border-radius:2px;background:${COL_INAC}"></div>Inactivos</div>`+
+      `<div style="display:flex;align-items:center;gap:4px"><div style="width:9px;height:9px;border-radius:2px;background:${COL_OR}"></div>Oferta Rechazada</div></div>`;
+    const mr=lossData[0].rate||0.01;
+    lossData.forEach(d=>{
+      const p=Math.max(1,Math.round(d.rate/mr*100));
+      const col=d.rate>=0.6?'#9B2335':d.rate>=0.35?'#8B5A00':'#4A6462';
+      lossEl.innerHTML+=`<div class="bar-row">`+
+        `<div class="bar-label" title="${d.f}">${d.f}</div>`+
+        `<div class="bar-track"><div style="height:100%;display:flex;width:${p}%">`+
+        `${d.d>0?`<div style="flex:${d.d};background:${COL_DESC};height:100%" title="Descartados: ${d.d}"></div>`:''}`+
+        `${d.i>0?`<div style="flex:${d.i};background:${COL_INAC};height:100%" title="Inactivos: ${d.i}"></div>`:''}`+
+        `${d.o>0?`<div style="flex:${d.o};background:${COL_OR};height:100%" title="Oferta Rechazada: ${d.o}"></div>`:''}`+
+        `</div></div>`+
+        `<div class="bar-count" style="width:72px;text-align:right;color:${col}">${Math.round(d.rate*100)}% <span style="font-size:9px;color:var(--text-muted)">(${d.lost}/${d.total})</span></div></div>`;
+    });
+  }
 
   // ── I. Weekly SVG Timeline ───────────────────────────────────
   _renderFuentesSvgTimeline(data);
