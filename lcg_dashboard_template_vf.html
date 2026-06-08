@@ -29,6 +29,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-prim
 .tab-panel.active{display:block;animation:fadeIn .2s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
+/* SUB-TABS (Bajas Pipeline) */
+.subtabs{display:flex;gap:2px;margin-bottom:1.25rem;border-bottom:1.5px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.subtab{font-size:11px;font-weight:500;padding:7px 13px;border:none;background:none;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;transition:all .15s;white-space:nowrap;flex-shrink:0;}
+.subtab.active{color:var(--lcg-dark);font-weight:600;border-bottom-color:var(--lcg-mid);}
+.subtab:hover:not(.active){color:var(--text-secondary);}
+.subtab-panel{display:none;}
+.subtab-panel.active{display:block;}
+
 /* KPI */
 .kpi-row{display:grid;gap:10px;margin-bottom:1.5rem;}
 .kpi-row-8{grid-template-columns:repeat(8,1fr);}
@@ -313,7 +321,7 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
 <div class="tabs">
   <button class="tab active" data-tab="pipeline">📊 Pipeline Activo</button>
   <button class="tab" data-tab="movimientos">🔄 Movimientos</button>
-  <button class="tab" data-tab="descartados">⛔ Descartados</button>
+  <button class="tab" data-tab="descartados">⚠️ Bajas Pipeline</button>
   <button class="tab" data-tab="timeline">📅 Timeline</button>
   <button class="tab" data-tab="detalle">🗂 Detalle</button>
 </div>
@@ -377,64 +385,138 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
   <div class="card"><div id="merged-activity-log"></div></div>
 </div>
 
-<!-- ═══ TAB 3: DESCARTADOS ═══ -->
+<!-- ═══ TAB 3: BAJAS PIPELINE ═══ -->
 <div class="tab-panel" id="tab-descartados">
-  <div class="kpi-row kpi-row-5" id="kpi-desc"></div>
-  <div class="section-label">Descartes por etapa del pipeline</div>
-  <div class="pipeline-wrap"><div class="pipeline-track" id="pipeline-desc"></div></div>
-  <div class="grid2">
-    <div class="card" style="margin-bottom:0"><div class="card-title">Razones de descarte por categoría</div><div id="cat-bars"></div></div>
-    <div class="card" style="margin-bottom:0">
-      <div class="card-title">Decisores directos</div><div id="decisor-bars"></div>
-      <div style="margin-top:1.25rem"><div class="card-title">Nivel de candidatos descartados</div><div id="nivel-desc-bars"></div></div>
-    </div>
-  </div>
-  <div style="margin-bottom:1.5rem"></div>
-  <div class="section-label">Etapa × Razón — hover para ver candidatos</div>
-  <div class="card"><div class="heatmap-wrap"><div id="matrix-wrap"></div></div></div>
-  <div class="date-range-wrap" id="desc-histo-filter-wrap" style="margin-top:1.25rem">
-    <span style="font-size:12px;font-weight:600;color:var(--lcg-dark);flex-shrink:0">Período histogramas:</span>
-    <input type="date" class="date-input" id="desc-histo-from">
-    <span style="color:var(--text-muted);font-size:12px;flex-shrink:0">→</span>
-    <input type="date" class="date-input" id="desc-histo-to">
-    <button class="apply-btn" onclick="renderDescHistos()">Aplicar →</button>
-    <div class="date-shortcuts-row">
-      <button class="date-shortcut on" onclick="setDescHistoRange('all',this)">Todo</button>
-      <button class="date-shortcut" onclick="setDescHistoRange('month',this)">Este mes</button>
-      <button class="date-shortcut" onclick="setDescHistoRange('quarter',this)">Trimestre</button>
-    </div>
-  </div>
-  <div class="grid2" style="margin-top:1rem">
-    <div class="card" style="margin-bottom:0">
-      <div class="card-title">Score Pyxoom — descartados con evaluación</div>
-      <div style="overflow-x:auto"><canvas id="pyxoom-canvas" style="display:block;width:100%;max-width:460px;height:170px"></canvas></div>
-    </div>
-    <div class="card" style="margin-bottom:0">
-      <div class="card-title">Días en pipeline antes de descarte</div>
-      <div style="overflow-x:auto"><canvas id="dias-canvas" style="display:block;width:100%;max-width:460px;height:170px"></canvas></div>
-    </div>
-  </div>
-  <div style="margin-bottom:1.5rem"></div>
-  <div class="section-label">Descartes por semana — por razón (hover para ver candidatos)</div>
-  <div class="card">
-    <div class="tl-legend" id="desc-wk-legend"></div>
-    <div style="overflow-x:auto;margin-top:10px;"><svg id="desc-wk-svg" height="200" style="display:block;width:100%;"></svg></div>
-  </div>
-  <div class="section-label">Timeline semanal de descartes — más reciente primero</div>
-  <div class="card">
-    <div id="tl-controls-desc" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;"></div>
-    <div id="weekly-desc"></div>
+  <div class="subtabs">
+    <button class="subtab active" data-subtab="desc">⛔ Descartados</button>
+    <button class="subtab" data-subtab="inact">😴 Inactivos</button>
+    <button class="subtab" data-subtab="oferta">❌ Oferta Rechazada</button>
   </div>
 
-  <div class="section-label">Comentarios sin clasificar — no coinciden con ninguna categoría</div>
-  <div class="card" id="unclassified-card">
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:1rem;line-height:1.6;">
-      Estos candidatos tienen un último comentario que <strong>no encajó en ninguna categoría</strong> configurada.
-      Revisa los textos y agrega palabras clave en <a href="config.html" target="_blank" style="color:var(--lcg-mid);text-decoration:none;font-weight:600;">Configuración</a> para clasificarlos.
+  <!-- ── SUB-TAB: DESCARTADOS ── -->
+  <div class="subtab-panel active" id="subtab-desc">
+    <div class="kpi-row kpi-row-5" id="kpi-desc"></div>
+    <div class="section-label">Descartes por etapa del pipeline</div>
+    <div class="pipeline-wrap"><div class="pipeline-track" id="pipeline-desc"></div></div>
+    <div class="grid2">
+      <div class="card" style="margin-bottom:0"><div class="card-title">Razones de descarte por categoría</div><div id="cat-bars"></div></div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Decisores directos</div><div id="decisor-bars"></div>
+        <div style="margin-top:1.25rem"><div class="card-title">Nivel de candidatos descartados</div><div id="nivel-desc-bars"></div></div>
+      </div>
     </div>
-    <div id="unclassified-list"></div>
-  </div>
-</div>
+    <div style="margin-bottom:1.5rem"></div>
+    <div class="section-label">Etapa × Razón — hover para ver candidatos</div>
+    <div class="card"><div class="heatmap-wrap"><div id="matrix-wrap"></div></div></div>
+    <div class="date-range-wrap" id="desc-histo-filter-wrap" style="margin-top:1.25rem">
+      <span style="font-size:12px;font-weight:600;color:var(--lcg-dark);flex-shrink:0">Período histogramas:</span>
+      <input type="date" class="date-input" id="desc-histo-from">
+      <span style="color:var(--text-muted);font-size:12px;flex-shrink:0">→</span>
+      <input type="date" class="date-input" id="desc-histo-to">
+      <button class="apply-btn" onclick="renderDescHistos()">Aplicar →</button>
+      <div class="date-shortcuts-row">
+        <button class="date-shortcut on" onclick="setDescHistoRange('all',this)">Todo</button>
+        <button class="date-shortcut" onclick="setDescHistoRange('month',this)">Este mes</button>
+        <button class="date-shortcut" onclick="setDescHistoRange('quarter',this)">Trimestre</button>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:1rem">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Score Pyxoom — descartados con evaluación</div>
+        <div style="overflow-x:auto"><canvas id="pyxoom-canvas" style="display:block;width:100%;max-width:460px;height:170px"></canvas></div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Días en pipeline antes de descarte</div>
+        <div style="overflow-x:auto"><canvas id="dias-canvas" style="display:block;width:100%;max-width:460px;height:170px"></canvas></div>
+      </div>
+    </div>
+    <div style="margin-bottom:1.5rem"></div>
+    <div class="section-label">Descartes por semana — por razón (hover para ver candidatos)</div>
+    <div class="card">
+      <div class="tl-legend" id="desc-wk-legend"></div>
+      <div style="overflow-x:auto;margin-top:10px;"><svg id="desc-wk-svg" height="200" style="display:block;width:100%;"></svg></div>
+    </div>
+    <div class="section-label">Timeline semanal de descartes — más reciente primero</div>
+    <div class="card">
+      <div id="tl-controls-desc" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;"></div>
+      <div id="weekly-desc"></div>
+    </div>
+    <div class="section-label">Comentarios sin clasificar — no coinciden con ninguna categoría</div>
+    <div class="card" id="unclassified-card">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:1rem;line-height:1.6;">
+        Estos candidatos tienen un último comentario que <strong>no encajó en ninguna categoría</strong> configurada.
+        Revisa los textos y agrega palabras clave en <a href="config.html" target="_blank" style="color:var(--lcg-mid);text-decoration:none;font-weight:600;">Configuración</a> para clasificarlos.
+      </div>
+      <div id="unclassified-list"></div>
+    </div>
+  </div><!-- /subtab-desc -->
+
+  <!-- ── SUB-TAB: INACTIVOS ── -->
+  <div class="subtab-panel" id="subtab-inact">
+    <div class="kpi-row kpi-row-5" id="kpi-inact"></div>
+    <div class="section-label">Inactivos por etapa del pipeline</div>
+    <div class="pipeline-wrap"><div class="pipeline-track" id="pipeline-inact"></div></div>
+    <div class="grid2">
+      <div class="card" style="margin-bottom:0"><div class="card-title">Razón de inactividad — clasificación automática</div><div id="inact-cat-bars"></div></div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Fuente de candidatos inactivos</div><div id="inact-fuente-bars"></div>
+        <div style="margin-top:1.25rem"><div class="card-title">Nivel de candidatos inactivos</div><div id="inact-nivel-bars"></div></div>
+      </div>
+    </div>
+    <div style="margin-bottom:1.5rem"></div>
+    <div class="section-label">Entrevistador / recruiter con más inactivos</div>
+    <div class="card" style="margin-bottom:1.25rem"><div id="inact-entrevistador-bars"></div></div>
+    <div class="section-label">Candidatos inactivos recientes — candidatos a reactivar</div>
+    <div id="inact-recommendations"></div>
+    <div class="section-label">Timeline semanal de inactivos — más reciente primero</div>
+    <div class="card">
+      <div id="tl-controls-inact" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;"></div>
+      <div id="weekly-inact"></div>
+    </div>
+    <div class="section-label">Detalle — todos los inactivos</div>
+    <div class="card">
+      <div class="dt-wrap"><table class="dt">
+        <thead><tr>
+          <th>Ingreso</th><th>Candidato</th><th>Etapa</th><th>Nivel</th>
+          <th>Fuente</th><th>Entrevistador</th><th>Último comentario</th><th>Días</th>
+        </tr></thead>
+        <tbody id="inact-tbody"></tbody>
+      </table></div>
+    </div>
+  </div><!-- /subtab-inact -->
+
+  <!-- ── SUB-TAB: OFERTA RECHAZADA ── -->
+  <div class="subtab-panel" id="subtab-oferta">
+    <div class="kpi-row kpi-row-5" id="kpi-or"></div>
+    <div class="section-label">Razones de rechazo — clasificación automática</div>
+    <div class="grid2">
+      <div class="card" style="margin-bottom:0"><div class="card-title">Razón principal de rechazo</div><div id="or-cat-bars"></div></div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Rechazos por nivel de candidato</div><div id="or-nivel-bars"></div>
+        <div style="margin-top:1.25rem"><div class="card-title">Fuente del candidato</div><div id="or-fuente-bars"></div></div>
+      </div>
+    </div>
+    <div style="margin-bottom:1.5rem"></div>
+    <div class="section-label">Entrevistador / recruiter con más rechazos de oferta</div>
+    <div class="card" style="margin-bottom:1.25rem"><div id="or-entrevistador-bars"></div></div>
+    <div class="section-label">Rechazos por semana — más reciente primero</div>
+    <div class="card">
+      <div id="tl-controls-or" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;"></div>
+      <div id="weekly-or"></div>
+    </div>
+    <div class="section-label">Detalle — todas las ofertas rechazadas</div>
+    <div class="card">
+      <div class="dt-wrap"><table class="dt">
+        <thead><tr>
+          <th>Fecha</th><th>Candidato</th><th>Etapa</th><th>Nivel</th>
+          <th>Fuente</th><th>Razón clasificada</th><th>Comentario</th><th>Días</th>
+        </tr></thead>
+        <tbody id="or-tbody"></tbody>
+      </table></div>
+    </div>
+  </div><!-- /subtab-oferta -->
+
+</div><!-- /tab-descartados -->
 
 <!-- ═══ TAB 4: TIMELINE ═══ -->
 <div class="tab-panel" id="tab-timeline">
@@ -683,10 +765,26 @@ window.addEventListener('resize',()=>{
   _resizeTimer=setTimeout(()=>{
     const activeTab=document.querySelector('.tab.active')?.dataset?.tab;
     if(activeTab==='movimientos')renderMovimientos();
-    if(activeTab==='descartados')renderDescHistos();
+    if(activeTab==='descartados'){
+      const activeSubtab=document.querySelector('.subtab.active')?.dataset?.subtab;
+      if(!activeSubtab||activeSubtab==='desc')renderDescHistos();
+    }
     if(activeTab==='timeline')renderTimeline();
   },300);
 });
+
+// Sub-tab switching (Bajas Pipeline)
+function switchSubTab(id){
+  document.querySelectorAll('#tab-descartados .subtab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#tab-descartados .subtab').forEach(b=>b.classList.remove('active'));
+  const panel=document.getElementById('subtab-'+id);
+  if(panel)panel.classList.add('active');
+  document.querySelectorAll('#tab-descartados .subtab').forEach(b=>{if(b.dataset.subtab===id)b.classList.add('active');});
+  if(id==='desc'){setTimeout(renderDescHistos,80);}
+  if(id==='inact'){renderInactivos();}
+  if(id==='oferta'){renderOfertaRechazada();}
+}
+document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',()=>switchSubTab(btn.dataset.subtab)));
 
 // ═══════════════════════════════════════════════════════════
 // TAB 1: PIPELINE ACTIVO
@@ -1631,6 +1729,296 @@ function renderDescHistos(){
         const xp=pad+(v/bsz)*bW;if(xp<=W-8)ctx.fillText(v+'d',xp,H-4);});
       ctx.strokeStyle='#D4E8E5';ctx.lineWidth=1;ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(pad,H-pad);ctx.lineTo(W-8,H-pad);ctx.stroke();
     }else{ctx.fillStyle='#8AA8A5';ctx.font='12px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('Sin datos de días en pipeline',W/2,H/2);}
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// OFFER-REJECTION CATEGORIES
+// ═══════════════════════════════════════════════════════════
+const OR_CATS=[
+  {id:'or_salary',  name:'Brecha salarial / Compensación',color:'#B05A00',kw:['sueldo','salario','compensacion','pretensiones','tabulador','económic','ofrecimos','ingreso','brecha','no alcanza','bajo salario','paga','rango salarial','contra oferta','contraoferta de sueldo']},
+  {id:'or_offer',   name:'Aceptó otra oferta',            color:'#1A56A0',kw:['otra oferta','otra empresa','se fue','aceptó otra','acepto otra','otra propuesta','competidor','mejor oferta']},
+  {id:'or_location',name:'Ubicación / Reubicación',       color:'#A03020',kw:['ubicacion','reubicacion','ciudad','traslado','distancia','lejos','no quiere mudarse','no se mueve','residencia','mudarse']},
+  {id:'or_travel',  name:'Viajes / Disponibilidad',       color:'#7B5800',kw:['viajes','viaje','disponibilidad','no puede viajar','no viaja','horario','tiempo parcial','part time']},
+  {id:'or_timing',  name:'Tiempo / Preaviso',             color:'#5B3DBF',kw:['tiempo','timing','espera','no disponible ahora','más adelante','pendiente','plazos','tiempo de preaviso','notice period','preaviso']},
+  {id:'or_counter', name:'Contraoferta aceptada',         color:'#3B7A70',kw:['contraoferta','counter','empresa actual','actual empresa','quedarse en','no deja','renovaron','retención','retenido']},
+  {id:'or_role',    name:'Rol / Alineación del puesto',   color:'#5A6060',kw:['perfil no','no es lo que','diferente al esperado','rol diferente','funciones','responsabilidades','puesto diferente','no era lo esperado','cambio de rol']},
+  {id:'or_benefits',name:'Beneficios / Paquete',          color:'#8B2252',kw:['beneficios','vacaciones','prestaciones','seguro','fondo','aguinaldo','vales','caja de ahorro','paquete','no incluye']},
+  {id:'or_personal',name:'Razones personales',            color:'#3B6D11',kw:['personal','familia','salud','compromiso personal','situacion personal','proyecto personal','razones familiares']},
+  {id:'or_other',   name:'Otro / Sin clasificar',         color:'#8A7A70',kw:[]},
+];
+
+function getOrCat(r){
+  if(!r||r.trim().length<3)return OR_CATS[OR_CATS.length-1];
+  const s=r.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  for(const c of OR_CATS)if(c.kw.length&&c.kw.some(k=>s.includes(k.normalize('NFD').replace(/[̀-ͯ]/g,''))))return c;
+  return OR_CATS[OR_CATS.length-1];
+}
+
+// ═══════════════════════════════════════════════════════════
+// SUB-TAB: INACTIVOS
+// ═══════════════════════════════════════════════════════════
+let _inactivosRendered=false;
+function renderInactivos(){
+  _inactivosRendered=true;
+  const inactData=pipeData.filter(d=>d.estatus==='Inactivo').map(d=>({...d,cat:getCat(bestTextForCat(d))}));
+  const total=inactData.length;
+  const kpiEl=document.getElementById('kpi-inact');
+  if(!kpiEl)return;
+  kpiEl.innerHTML='';
+
+  if(!total){
+    kpiEl.innerHTML='<div class="kpi dark"><div class="kpi-label">Total inactivos</div><div class="kpi-value">0</div><div class="kpi-sub">Sin datos</div></div>';
+    ['pipeline-inact','inact-cat-bars','inact-fuente-bars','inact-nivel-bars','inact-entrevistador-bars','inact-recommendations','weekly-inact','inact-tbody'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=emptyState('Sin candidatos inactivos');});
+    return;
+  }
+
+  const withDias=inactData.filter(d=>d.dias_pipeline!=null);
+  const avgDias=withDias.length?Math.round(withDias.reduce((s,d)=>s+d.dias_pipeline,0)/withDias.length):null;
+  const pctPipeline=Math.round(total/Math.max(pipeData.length,1)*100);
+  const stageCts={};inactData.forEach(d=>{const k=STAGES.find(s=>d.grupo&&d.grupo.includes(s));if(k)stageCts[k]=(stageCts[k]||0)+1;});
+  const topStage=Object.entries(stageCts).sort((a,b)=>b[1]-a[1])[0];
+
+  [{label:'Total inactivos',val:total,sub:'Período completo',dark:true},
+   {label:'% del pipeline',val:pctPipeline+'%',sub:'De '+pipeData.length+' totales',accent:true},
+   {label:'Días prom. pipeline',val:avgDias!=null?avgDias:'—',sub:'Antes de inactividad'},
+   {label:'Etapa más común',val:topStage?stageAbr(topStage[0]):'—',sub:topStage?(topStage[1]+' inactivos'):''},
+   {label:'Con comentario',val:inactData.filter(d=>bestTextForCat(d).trim().length>3).length,sub:'Tienen último comentario'},
+  ].forEach(k=>{kpiEl.innerHTML+=`<div class="kpi ${k.dark?'dark':k.accent?'accent':''}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${(!k.dark&&!k.accent)?'<div class="kpi-bar"></div>':''}</div>`;});
+
+  // Pipeline arrows
+  const pt=document.getElementById('pipeline-inact');
+  if(pt){pt.innerHTML='';STAGES.forEach((s,i)=>{const cnt=inactData.filter(d=>d.grupo&&d.grupo.includes(s)).length;if(!cnt)return;const el=document.createElement('div');el.className='ps';el.innerHTML=`<div class="ps-inner" style="background:${STAGE_COLORS[i]}18"><div class="ps-name">${s}</div><div class="ps-count" style="color:${STAGE_COLORS[i]}">${cnt}</div><div class="ps-pct">${Math.round(cnt/total*100)}%</div></div>`;pt.appendChild(el);});}
+
+  // Category bars
+  const catCts={};CATS.forEach(c=>catCts[c.id]=0);
+  inactData.forEach(d=>{const cid=d.cat&&d.cat.id?d.cat.id:'other';catCts[cid]=(catCts[cid]||0)+1;});
+  const catS=CATS.map(c=>({...c,label:c.name,value:catCts[c.id]||0})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
+  const icbEl=document.getElementById('inact-cat-bars');
+  if(icbEl){icbEl.innerHTML='';if(catS.length)buildBars('inact-cat-bars',catS,Math.max(...catS.map(c=>c.value),1),d=>d.color||'#888');else icbEl.innerHTML=emptyState('Sin clasificación');}
+
+  // Fuente bars
+  const fCts={};inactData.forEach(d=>{const f=(d.fuente||'Sin fuente').trim()||'Sin fuente';fCts[f]=(fCts[f]||0)+1;});
+  const fS=Object.entries(fCts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,v])=>({label:l,value:v}));
+  const ifbEl=document.getElementById('inact-fuente-bars');
+  if(ifbEl){ifbEl.innerHTML='';if(fS.length)buildBars('inact-fuente-bars',fS,Math.max(...fS.map(x=>x.value),1),()=>'#00B880');else ifbEl.innerHTML=emptyState('Sin datos de fuente');}
+
+  // Nivel bars
+  const nCts={Alto:0,Sr:0,Jr:0,Bajo:0};inactData.forEach(d=>{if(nCts[d.nivel]!==undefined)nCts[d.nivel]++;});
+  const nS=Object.entries(nCts).sort((a,b)=>b[1]-a[1]).map(([l,v])=>({label:l,value:v}));
+  const inbEl=document.getElementById('inact-nivel-bars');
+  if(inbEl){inbEl.innerHTML='';buildBars('inact-nivel-bars',nS,Math.max(...nS.map(x=>x.value),1),d=>NIVEL_COLORS[d.label]||'#888');}
+
+  // Entrevistador bars
+  const eCts={};inactData.forEach(d=>{if(d.entrevistador){const e=d.entrevistador.trim();if(e)eCts[e]=(eCts[e]||0)+1;}});
+  const eS=Object.entries(eCts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([l,v])=>({label:l,value:v}));
+  const iebEl=document.getElementById('inact-entrevistador-bars');
+  if(iebEl){iebEl.innerHTML='';if(eS.length)buildBars('inact-entrevistador-bars',eS,Math.max(...eS.map(x=>x.value),1),()=>'#5B3DBF');else iebEl.innerHTML=emptyState('Sin datos de entrevistadores');}
+
+  // Recommendation cards
+  const recEl=document.getElementById('inact-recommendations');
+  if(recEl){
+    recEl.innerHTML='';
+    const recent=[...inactData].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0)).slice(0,6);
+    const wrap=document.createElement('div');
+    wrap.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:1.5rem;';
+    recent.forEach(d=>{
+      const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
+      const cmt=bestTextForCat(d)||'';
+      const card=document.createElement('div');
+      card.style.cssText=`background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;border-top:3px solid ${nc};`;
+      card.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="flex:1;font-size:13px;font-weight:600;color:var(--text-primary)">${safe(d.nombre)}</div>
+        <span style="background:${nc}18;color:${nc};font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px">${safe(d.grupo,'—')} · ${fmt(d.actualizado||d.creado_en)}</div>
+      ${cmt?`<div style="font-size:11px;color:var(--text-secondary);background:#F7F4F1;border-radius:6px;padding:6px 9px;line-height:1.5">${cmt.slice(0,120)}${cmt.length>120?'…':''}</div>`:'<div style="font-size:11px;color:var(--text-muted);font-style:italic">Sin comentario registrado</div>'}
+      <div style="margin-top:10px;font-size:10px;font-weight:600;color:var(--lcg-mid)">💡 Verificar disponibilidad y revisar bloqueo</div>`;
+      wrap.appendChild(card);
+    });
+    recEl.appendChild(wrap);
+  }
+
+  // Weekly timeline
+  const byWeek={};inactData.forEach(d=>{const iso=d.actualizado||d.creado_en;if(!iso)return;const wk=getWeekKey(iso);if(!wk)return;if(!byWeek[wk])byWeek[wk]=[];byWeek[wk].push(d);});
+  const iWeeks=Object.keys(byWeek).sort();
+  const iMonths=[...new Set(iWeeks.map(w=>w.slice(0,7)))];
+  const mNames={'2026-03':'Marzo','2026-04':'Abril','2026-05':'Mayo','2026-06':'Junio','2026-07':'Julio','2026-08':'Agosto','2026-09':'Sep'};
+  let iActiveM=null;
+  const itcEl=document.getElementById('tl-controls-inact');
+  if(itcEl){
+    itcEl.innerHTML='';
+    function makeIBtn(lbl,val){const b=document.createElement('button');b.className='filter-btn'+(val===null?' on':'');b.textContent=lbl;b.onclick=()=>{iActiveM=val;itcEl.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');renderInactTimeline();};return b;}
+    itcEl.appendChild(makeIBtn('Todos',null));iMonths.forEach(m=>itcEl.appendChild(makeIBtn(mNames[m]||m,m)));
+  }
+  function renderInactTimeline(){
+    const wEl=document.getElementById('weekly-inact');if(!wEl)return;wEl.innerHTML='';
+    const fw=iActiveM?iWeeks.filter(w=>w.startsWith(iActiveM)):iWeeks;
+    if(!fw.length){wEl.innerHTML=emptyState('Sin inactivos');return;}
+    [...fw].reverse().forEach((wk,wi)=>{
+      const items=byWeek[wk];const blk=document.createElement('div');blk.className='week-block';
+      const hdr=document.createElement('div');hdr.className='week-header';hdr.style.cursor='pointer';hdr.style.userSelect='none';
+      hdr.innerHTML=`<div class="week-lbl">${fmtWeek(wk)}</div><div class="week-cnt">${items.length} inactivo${items.length!==1?'s':''}</div><div class="week-line"></div>`;
+      const btn=document.createElement('button');
+      btn.style.cssText='flex-shrink:0;margin-left:8px;border:none;background:rgba(0,74,67,.12);color:var(--lcg-mid);border-radius:4px;width:22px;height:22px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:"DM Mono",monospace;padding:0;line-height:1;';
+      const expanded=wi===0;btn.textContent=expanded?'−':'+';
+      hdr.appendChild(btn);
+      const ch=document.createElement('div');ch.className='chips';ch.style.display=expanded?'flex':'none';
+      hdr.addEventListener('click',()=>{const open=ch.style.display!=='none';ch.style.display=open?'none':'flex';btn.textContent=open?'+':'−';});
+      items.forEach(d=>{
+        const chip=document.createElement('div');chip.className='chip';
+        const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888',abr=stageAbr(d.grupo);
+        const cmt=bestTextForCat(d)||'Sin comentario';
+        const shortC=cmt.length>60?cmt.slice(0,58)+'…':cmt;
+        chip.innerHTML=`<span class="chip-badge" style="background:${sc}18;color:${sc}">${abr}</span><span style="color:${nc};font-size:9px;font-weight:700;margin-top:1px;">${safe(d.nivel,'—')}</span><span class="chip-text"><b>${safe(d.nombre,'—').split(' ').slice(0,2).join(' ')}</b> · ${shortC}</span>`;
+        chip.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:4px">${safe(d.nombre,'—')}</div><div style="font-size:10px;color:#8AA8A5;margin-bottom:5px">${safe(d.grupo,'—')} · <span style="color:${nc}">Nivel ${safe(d.nivel,'—')}</span></div><div style="font-size:11px;color:#CBD5D4;border-top:1px solid rgba(255,255,255,.1);padding-top:5px">${cmt}</div>`));
+        chip.addEventListener('mousemove',moveTip);chip.addEventListener('mouseleave',hideTip);ch.appendChild(chip);
+      });
+      blk.appendChild(hdr);blk.appendChild(ch);wEl.appendChild(blk);
+    });
+  }
+  renderInactTimeline();
+
+  // Detail table
+  const tbody=document.getElementById('inact-tbody');
+  if(tbody){
+    tbody.innerHTML='';
+    [...inactData].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0)).forEach(d=>{
+      const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
+      const cmt=getBestComment(d);
+      tbody.innerHTML+=`<tr>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${fmt(d.creado_en)}</td>
+        <td style="font-size:12px;font-weight:500">${safe(d.nombre,'—')}</td>
+        <td><span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:${sc}18;color:${sc}">${safe(d.grupo,'—')}</span></td>
+        <td><span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span></td>
+        <td style="font-size:11px;color:var(--text-muted)">${safe(d.fuente,'—')}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${safe(d.entrevistador,'—')}</td>
+        <td style="font-size:11px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe(cmt,'').replace(/"/g,'&quot;')}">${safe(cmt,'—')}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;text-align:right">${d.dias_pipeline!=null?d.dias_pipeline+'d':'—'}</td>
+      </tr>`;
+    });
+    if(!inactData.length)tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted)">Sin candidatos inactivos</td></tr>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SUB-TAB: OFERTA RECHAZADA
+// ═══════════════════════════════════════════════════════════
+let _ofertaRendered=false;
+function renderOfertaRechazada(){
+  _ofertaRendered=true;
+  const orData=pipeData.filter(d=>OFERTA_STATUSES.includes(d.estatus)).map(d=>({...d,orCat:getOrCat(getBestComment(d))}));
+  const total=orData.length;
+  const kpiEl=document.getElementById('kpi-or');
+  if(!kpiEl)return;
+  kpiEl.innerHTML='';
+
+  if(!total){
+    kpiEl.innerHTML='<div class="kpi dark"><div class="kpi-label">Total rechazos</div><div class="kpi-value">0</div><div class="kpi-sub">Sin datos</div></div>';
+    ['or-cat-bars','or-nivel-bars','or-fuente-bars','or-entrevistador-bars','weekly-or','or-tbody'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=emptyState('Sin ofertas rechazadas');});
+    return;
+  }
+
+  const totalWithOffer=pipeData.filter(d=>OFERTA_STATUSES.includes(d.estatus)||d.estatus==='Contratado'||d.estatus==='Contratados').length;
+  const acceptRate=totalWithOffer?Math.round((totalWithOffer-total)/totalWithOffer*100):0;
+  const rejectRate=totalWithOffer?Math.round(total/totalWithOffer*100):0;
+  const withDias=orData.filter(d=>d.dias_pipeline!=null);
+  const avgDias=withDias.length?Math.round(withDias.reduce((s,d)=>s+d.dias_pipeline,0)/withDias.length):null;
+  const orCatCts={};orData.forEach(d=>{const cid=d.orCat&&d.orCat.id?d.orCat.id:'or_other';orCatCts[cid]=(orCatCts[cid]||0)+1;});
+  const topOrCat=Object.entries(orCatCts).sort((a,b)=>b[1]-a[1])[0];
+  const topOrCatName=topOrCat?(OR_CATS.find(c=>c.id===topOrCat[0])||{name:'—'}).name:'—';
+
+  [{label:'Total rechazos',val:total,sub:'Período completo',dark:true},
+   {label:'Tasa aceptación',val:acceptRate+'%',sub:'Candidatos que aceptaron',accent:true},
+   {label:'Tasa rechazo',val:rejectRate+'%',sub:'Rechazaron oferta',cls:'red-lite'},
+   {label:'Días prom. pipeline',val:avgDias!=null?avgDias:'—',sub:'Hasta el rechazo'},
+   {label:'Razón más común',val:topOrCat?topOrCat[1]:'—',sub:topOrCatName.slice(0,26)},
+  ].forEach(k=>{kpiEl.innerHTML+=`<div class="kpi ${k.dark?'dark':k.accent?'accent':(k.cls||'')}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${(!k.dark&&!k.accent&&!k.cls)?'<div class="kpi-bar"></div>':''}</div>`;});
+
+  // OR Category bars
+  const catS=OR_CATS.map(c=>({...c,label:c.name,value:orCatCts[c.id]||0})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
+  const ocbEl=document.getElementById('or-cat-bars');
+  if(ocbEl){ocbEl.innerHTML='';if(catS.length)buildBars('or-cat-bars',catS,Math.max(...catS.map(c=>c.value),1),d=>d.color||'#888');else ocbEl.innerHTML=emptyState('Sin clasificación');}
+
+  // Nivel bars
+  const nCts={Alto:0,Sr:0,Jr:0,Bajo:0};orData.forEach(d=>{if(nCts[d.nivel]!==undefined)nCts[d.nivel]++;});
+  const nS=Object.entries(nCts).sort((a,b)=>b[1]-a[1]).map(([l,v])=>({label:l,value:v}));
+  const onbEl=document.getElementById('or-nivel-bars');
+  if(onbEl){onbEl.innerHTML='';buildBars('or-nivel-bars',nS,Math.max(...nS.map(x=>x.value),1),d=>NIVEL_COLORS[d.label]||'#888');}
+
+  // Fuente bars
+  const fCts={};orData.forEach(d=>{const f=(d.fuente||'Sin fuente').trim()||'Sin fuente';fCts[f]=(fCts[f]||0)+1;});
+  const fS=Object.entries(fCts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,v])=>({label:l,value:v}));
+  const ofbEl=document.getElementById('or-fuente-bars');
+  if(ofbEl){ofbEl.innerHTML='';if(fS.length)buildBars('or-fuente-bars',fS,Math.max(...fS.map(x=>x.value),1),()=>'#00B880');else ofbEl.innerHTML=emptyState('Sin datos de fuente');}
+
+  // Entrevistador bars
+  const eCts={};orData.forEach(d=>{if(d.entrevistador){const e=d.entrevistador.trim();if(e)eCts[e]=(eCts[e]||0)+1;}});
+  const eS=Object.entries(eCts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([l,v])=>({label:l,value:v}));
+  const oebEl=document.getElementById('or-entrevistador-bars');
+  if(oebEl){oebEl.innerHTML='';if(eS.length)buildBars('or-entrevistador-bars',eS,Math.max(...eS.map(x=>x.value),1),()=>'#8B2252');else oebEl.innerHTML=emptyState('Sin datos de entrevistadores');}
+
+  // Weekly timeline
+  const byWeek={};orData.forEach(d=>{const iso=d.actualizado||d.creado_en;if(!iso)return;const wk=getWeekKey(iso);if(!wk)return;if(!byWeek[wk])byWeek[wk]=[];byWeek[wk].push(d);});
+  const oWeeks=Object.keys(byWeek).sort();
+  const oMonths=[...new Set(oWeeks.map(w=>w.slice(0,7)))];
+  const oMNames={'2026-03':'Marzo','2026-04':'Abril','2026-05':'Mayo','2026-06':'Junio','2026-07':'Julio','2026-08':'Agosto','2026-09':'Sep'};
+  let oActiveM=null;
+  const otcEl=document.getElementById('tl-controls-or');
+  if(otcEl){
+    otcEl.innerHTML='';
+    function makeOBtn(lbl,val){const b=document.createElement('button');b.className='filter-btn'+(val===null?' on':'');b.textContent=lbl;b.onclick=()=>{oActiveM=val;otcEl.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');renderOrTimeline();};return b;}
+    otcEl.appendChild(makeOBtn('Todos',null));oMonths.forEach(m=>otcEl.appendChild(makeOBtn(oMNames[m]||m,m)));
+  }
+  function renderOrTimeline(){
+    const wEl=document.getElementById('weekly-or');if(!wEl)return;wEl.innerHTML='';
+    const fw=oActiveM?oWeeks.filter(w=>w.startsWith(oActiveM)):oWeeks;
+    if(!fw.length){wEl.innerHTML=emptyState('Sin rechazos');return;}
+    [...fw].reverse().forEach((wk,wi)=>{
+      const items=byWeek[wk];const blk=document.createElement('div');blk.className='week-block';
+      const hdr=document.createElement('div');hdr.className='week-header';hdr.style.cursor='pointer';hdr.style.userSelect='none';
+      hdr.innerHTML=`<div class="week-lbl">${fmtWeek(wk)}</div><div class="week-cnt">${items.length} rechazo${items.length!==1?'s':''}</div><div class="week-line"></div>`;
+      const btn=document.createElement('button');
+      btn.style.cssText='flex-shrink:0;margin-left:8px;border:none;background:rgba(0,74,67,.12);color:var(--lcg-mid);border-radius:4px;width:22px;height:22px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:"DM Mono",monospace;padding:0;line-height:1;';
+      const expanded=wi===0;btn.textContent=expanded?'−':'+';
+      hdr.appendChild(btn);
+      const ch=document.createElement('div');ch.className='chips';ch.style.display=expanded?'flex':'none';
+      hdr.addEventListener('click',()=>{const open=ch.style.display!=='none';ch.style.display=open?'none':'flex';btn.textContent=open?'+':'−';});
+      items.forEach(d=>{
+        const chip=document.createElement('div');chip.className='chip';
+        const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888',abr=stageAbr(d.grupo);
+        const cmt=getBestComment(d)||'Sin razón documentada';
+        const shortC=cmt.length>60?cmt.slice(0,58)+'…':cmt;
+        const orCatColor=(d.orCat&&d.orCat.color)||'#888';const orCatName=(d.orCat&&d.orCat.name)||'—';
+        chip.innerHTML=`<div class="chip-dot" style="background:${orCatColor}"></div><span class="chip-badge" style="background:${sc}18;color:${sc}">${abr}</span><span style="color:${nc};font-size:9px;font-weight:700;margin-top:1px;">${safe(d.nivel,'—')}</span><span class="chip-text"><b>${safe(d.nombre,'—').split(' ').slice(0,2).join(' ')}</b> · <span style="color:${orCatColor}">${orCatName}</span> · ${shortC}</span>`;
+        chip.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:4px">${safe(d.nombre,'—')}</div><div style="font-size:10px;color:#8AA8A5;margin-bottom:5px">${safe(d.grupo,'—')} · <span style="color:${nc}">Nivel ${safe(d.nivel,'—')}</span></div><div style="font-size:11px;color:${orCatColor};font-weight:600;margin-bottom:3px">${orCatName}</div><div style="font-size:11px;color:#CBD5D4;border-top:1px solid rgba(255,255,255,.1);padding-top:5px">${cmt}</div>`));
+        chip.addEventListener('mousemove',moveTip);chip.addEventListener('mouseleave',hideTip);ch.appendChild(chip);
+      });
+      blk.appendChild(hdr);blk.appendChild(ch);wEl.appendChild(blk);
+    });
+  }
+  renderOrTimeline();
+
+  // Detail table
+  const tbody=document.getElementById('or-tbody');
+  if(tbody){
+    tbody.innerHTML='';
+    [...orData].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0)).forEach(d=>{
+      const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
+      const cmt=getBestComment(d);
+      const orCatColor=(d.orCat&&d.orCat.color)||'#888';const orCatName=(d.orCat&&d.orCat.name)||'—';
+      tbody.innerHTML+=`<tr>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${fmt(d.actualizado||d.creado_en)}</td>
+        <td style="font-size:12px;font-weight:500">${safe(d.nombre,'—')}</td>
+        <td><span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:${sc}18;color:${sc}">${safe(d.grupo,'—')}</span></td>
+        <td><span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span></td>
+        <td style="font-size:11px;color:var(--text-muted)">${safe(d.fuente,'—')}</td>
+        <td><span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:${orCatColor}18;color:${orCatColor}">${orCatName}</span></td>
+        <td style="font-size:11px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe(cmt,'').replace(/"/g,'&quot;')}">${safe(cmt,'—')}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;text-align:right">${d.dias_pipeline!=null?d.dias_pipeline+'d':'—'}</td>
+      </tr>`;
+    });
+    if(!orData.length)tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted)">Sin ofertas rechazadas</td></tr>';
   }
 }
 
