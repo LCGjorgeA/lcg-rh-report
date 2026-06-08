@@ -533,21 +533,29 @@ const _storedCfg=(()=>{try{return JSON.parse(localStorage.getItem('lcg_dashboard
 
 let CATS=[
   {id:'pyxoom',  name:'Pyxoom / Psicométrico',         color:'#1A56A0',kw:['pyxoom','psicométric','resultado no satisf','resultado de pyxoom','resultado en pyxoom','resultado bajo','aprobatori','menor a 90','muy bajo','no aprobatorio','puntaje','calificacion','score']},
-  {id:'salary',  name:'Brecha salarial',                color:'#B05A00',kw:['expectativa','tabulador','económic','salario','gana','sueldo','ofrecer','ingreso','busca 200','160,000','130k','95,000','65mil','35mil','200mil','93,812','36,500','31,540','pretensiones','compensacion','compensation','rango salarial','fuera de rango','fuera del rango','encima del','por encima','por debajo del']},
-  {id:'leader',  name:'Decisión Jaime / Fray / Fer',    color:'#5B3DBF',kw:['jaime','fray','fer no','fer lo','a fer','no le gust','decision de','decisión de']},
-  {id:'withdraw',name:'Candidato se retira',            color:'#0A7A5A',kw:['no desea continuar','sale del proceso','ya no desea','salir del proceso','temas personales','oferta en otro lado','rechazó oferta','no acepto','no aceptó carta','rechazó la oferta','declino','declinó','retira','se retira','renuncia al proceso','acepta otra oferta','recibio otra oferta']},
+  {id:'salary',  name:'Brecha salarial',                color:'#B05A00',kw:['expectativa','tabulador','económic','salario','gana','sueldo','ofrecer','ingreso','busca 200','160,000','130k','95,000','65mil','35mil','200mil','93,812','36,500','31,540','pretensiones','compensacion','compensation','rango salarial','fuera de rango','fuera del rango','encima del','por encima','por debajo del','aumento','g2','ofrecimos']},
+  {id:'leader',  name:'Decisión Jaime / Fray / Fer',    color:'#5B3DBF',kw:['jaime','fray','fer no','fer lo','a fer','fer pide','no le gust','decision de','decisión de']},
+  {id:'withdraw',name:'Candidato se retira',            color:'#0A7A5A',kw:['no desea continuar','sale del proceso','ya no desea','salir del proceso','temas personales','oferta en otro lado','rechazó oferta','no acepto','no aceptó carta','rechazó la oferta','declino','declinó','retira','se retira','renuncia al proceso','acepta otra oferta','recibio otra oferta','abandona','no me interesa','acepto otra propuesta','otra propuesta','no esta dispuesto']},
   {id:'change',  name:'Cambio de perfil / Requisitos',  color:'#3B6D11',kw:['actualización del perfil','cambio de perfil','op-td','nuevos requerimientos','ya no es candidata','ya no es candidato','perfil actualizado','posicion cancelada','posición cancelada','vacante cancelada','cambio de requisito','requisito cambió']},
-  {id:'mobility',name:'Movilidad / Disponibilidad',     color:'#A03020',kw:['reubic','viajes cortos','cleveland','asignación fija','guatemal','ecuatoria','pasaporte','residencia','disponibilidad','no puede viajar','no viaja','no disponible','tiempo parcial','part time']},
-  {id:'soft',    name:'Perfil / Imagen / Competencias', color:'#7B5800',kw:['imagen','carisma','chispa','pasión','carácter','seguridad','autoconfianza','muy chico','universidad','logros medibles','no es el perfil','no cumple','competencias','no tiene experiencia','experiencia insuficiente','formacion academica','formación','falta de','no demuestra']},
-  {id:'tech',    name:'Perfil técnico insuficiente',    color:'#8B2252',kw:['conocimiento técnico','técnico','excel','power bi','powerbi','sql','python','no maneja','dominio','herramienta','conocimiento insuficiente','skill','habilidad técnica']},
+  {id:'mobility',name:'Movilidad / Disponibilidad',     color:'#A03020',kw:['reubic','viajes cortos','cleveland','asignación fija','guatemal','ecuatoria','pasaporte','residencia','disponibilidad','no puede viajar','no viaja','no disponible','tiempo parcial','part time','vive en','esta en','colombiano','extranjero','no quiere viajar','busca moverse','radica en']},
+  {id:'soft',    name:'Perfil / Imagen / Competencias', color:'#7B5800',kw:['imagen','carisma','chispa','pasión','carácter','seguridad','autoconfianza','muy chico','universidad','logros medibles','no es el perfil','no cumple','competencias','no tiene experiencia','experiencia insuficiente','formacion academica','formación','falta de','no demuestra','financiero','video','infantil','enfocad','people & culture','people and culture']},
+  {id:'tech',    name:'Perfil técnico insuficiente',    color:'#8B2252',kw:['conocimiento técnico','técnico','excel','power bi','powerbi','sql','python','no maneja','dominio','herramienta','conocimiento insuficiente','skill','habilidad técnica','relex','implementacion de']},
   {id:'case',    name:'Caso / BC / Panel',              color:'#1A5A80',kw:['panel','ppt','bc','caso','fuera de tiempo','sin diseño','entregó','mba','presentación','presentacion','caso de negocio','business case']},
-  {id:'filter',  name:'Filtro inicial / Sin respuesta', color:'#5A6060',kw:['preguntas filtro','primer filtro','cuestionario','encuesta','recordatorio','mandó','mandaron','no respondió','no puede entrar','sin respuesta','no contesta','no respondio','no completó','no completo']},
+  {id:'filter',  name:'Filtro inicial / Sin respuesta', color:'#5A6060',kw:['preguntas filtro','primer filtro','cuestionario','encuesta','recordatorio','mandó','mandaron','no respondió','no puede entrar','sin respuesta','no contesta','no respondio','no completó','no completo','mande','whatsapp','grabando','dispuesto a completar']},
   {id:'interview',name:'No aprueba entrevista',         color:'#6B3A8B',kw:['entrevista','interview','no pasó','no paso','resultado de entrevista','desempeño en entrevista','feedback de entrevista','no avanza','bajo desempeño en']},
 ];
 
-// Override with user-configured categories if present
+// Override with user-configured categories, merging any new default keywords
 if(_storedCfg.cats&&Array.isArray(_storedCfg.cats)&&_storedCfg.cats.length){
-  CATS=_storedCfg.cats.map(c=>({...c,kw:Array.isArray(c.kw)?c.kw:[]}));
+  const _defCats=CATS.slice();const _defById={};_defCats.forEach(c=>_defById[c.id]=c);
+  CATS=_storedCfg.cats.map(c=>{
+    const def=_defById[c.id];if(!def)return{...c,kw:Array.isArray(c.kw)?c.kw:[]};
+    const existing=new Set((Array.isArray(c.kw)?c.kw:[]).map(k=>k.toLowerCase()));
+    const merged=Array.isArray(c.kw)?[...c.kw]:[];
+    (def.kw||[]).forEach(k=>{if(!existing.has(k.toLowerCase()))merged.push(k);});
+    return{...c,kw:merged};
+  });
+  _defCats.forEach(def=>{if(!CATS.find(c=>c.id===def.id))CATS.push(def);});
 }
 
 // Build comment lookup BEFORE enriching data: item_id -> last comment text
