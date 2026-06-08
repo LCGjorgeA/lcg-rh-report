@@ -28,7 +28,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-prim
 .btn-primary:hover{background:var(--lcg-mid);}
 
 /* MAIN APP */
-.app{display:none;max-width:860px;margin:0 auto;padding:1.5rem 1rem 4rem;width:100%;}
+.app{display:none;max-width:880px;margin:0 auto;padding:1.5rem 1rem 5rem;width:100%;}
 .app-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;padding-bottom:1rem;border-bottom:2px solid var(--lcg-dark);}
 .app-header-left .brand{font-size:10px;font-weight:600;letter-spacing:.14em;color:var(--lcg-mid);text-transform:uppercase;margin-bottom:4px;}
 .app-header-left h1{font-size:20px;font-weight:600;color:var(--lcg-dark);}
@@ -38,26 +38,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-prim
 /* SECTIONS */
 .section{background:#fff;border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin-bottom:1.25rem;}
 .section-title{font-size:13px;font-weight:600;color:var(--lcg-dark);margin-bottom:.25rem;display:flex;align-items:center;gap:8px;}
-.section-desc{font-size:11px;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.5;}
+.section-desc{font-size:11px;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.6;}
 .field-row{margin-bottom:1rem;}
 .field-label{font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:5px;}
 .field-hint{font-size:10px;color:var(--text-muted);margin-top:3px;line-height:1.4;}
-input[type=text],input[type=password],input[type=number]{font-size:12px;font-family:'DM Mono',monospace;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;background:#FAFAF8;width:100%;transition:border .15s;}
-input[type=text]:focus,input[type=password]:focus,input[type=number]:focus{border-color:var(--lcg-mid);background:#fff;}
-input[type=number]{width:80px;}
-
-/* TAGS INPUT */
-.tags-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;background:#FAFAF8;min-height:42px;cursor:text;transition:border .15s;}
-.tags-wrap:focus-within{border-color:var(--lcg-mid);background:#fff;}
-.tag{display:inline-flex;align-items:center;gap:4px;background:var(--lcg-dark);color:#fff;font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;}
-.tag.baja{background:#9B2335;}
-.tag.descarte{background:#7A3FBF;}
-.tag.contratado{background:#1A6B3A;}
-.tag.inactivo{background:#8B5A00;}
-.tag.oferta{background:#C04040;}
-.tag-remove{cursor:pointer;opacity:.7;font-size:13px;line-height:1;padding:0 1px;}
-.tag-remove:hover{opacity:1;}
-.tags-input{border:none;outline:none;background:transparent;font-size:12px;font-family:'DM Sans',sans-serif;min-width:120px;flex:1;color:var(--text-primary);}
+input[type=text],input[type=password]{font-size:12px;font-family:'DM Mono',monospace;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;background:#FAFAF8;width:100%;transition:border .15s;}
+input[type=text]:focus,input[type=password]:focus{border-color:var(--lcg-mid);background:#fff;}
 
 /* REFRESH SECTION */
 .pat-row{display:flex;gap:8px;align-items:flex-end;}
@@ -67,7 +53,49 @@ input[type=number]{width:80px;}
 .btn-green:hover{background:var(--lcg-dark);}
 .btn-red{background:#FDECEA;color:var(--red);border:1px solid #F5B8B3;}
 .btn-red:hover{background:var(--red);color:#fff;}
+.btn-ghost{background:#F7F4F1;color:var(--text-secondary);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--border);color:var(--text-primary);}
 .refresh-feedback{font-size:11px;margin-top:8px;font-family:'DM Mono',monospace;color:var(--text-muted);}
+
+/* CATS EDITOR */
+.cats-note{font-size:10.5px;color:var(--text-secondary);background:#EAF5F2;border:1px solid #B0DDD4;border-radius:8px;padding:8px 12px;margin-bottom:1rem;line-height:1.6;}
+.cats-note strong{color:var(--lcg-dark);}
+
+.cat-row{background:#FAFAF8;border:1.5px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;transition:border-color .15s,box-shadow .15s;}
+.cat-row:hover{border-color:#B0DDD4;}
+.cat-row.dragging{opacity:.45;border-color:var(--lcg-mid);box-shadow:0 4px 16px rgba(0,74,67,.12);}
+.cat-row.drag-over{border-top:3px solid var(--lcg-mid);}
+
+.cat-row-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.cat-drag{color:var(--text-muted);cursor:grab;font-size:16px;padding:0 2px;line-height:1;user-select:none;flex-shrink:0;}
+.cat-drag:active{cursor:grabbing;}
+
+.cat-color-wrap{position:relative;flex-shrink:0;}
+.cat-color-swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid rgba(0,0,0,.1);flex-shrink:0;transition:transform .15s;}
+.cat-color-swatch:hover{transform:scale(1.15);}
+.cat-color-input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;top:0;left:0;}
+
+.cat-name-inp{flex:1;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:500;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;outline:none;background:#fff;transition:border .15s;}
+.cat-name-inp:focus{border-color:var(--lcg-mid);}
+
+.cat-del-btn{width:28px;height:28px;border:none;border-radius:50%;background:transparent;color:var(--text-muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1;}
+.cat-del-btn:hover{background:#FDECEA;color:var(--red);}
+
+/* KEYWORD TAGS */
+.tags-wrap{display:flex;flex-wrap:wrap;gap:5px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:#fff;min-height:38px;cursor:text;transition:border .15s;}
+.tags-wrap:focus-within{border-color:var(--lcg-mid);}
+.tag{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+.tag-remove{cursor:pointer;opacity:.6;font-size:13px;line-height:1;padding:0 1px;}
+.tag-remove:hover{opacity:1;}
+.tags-input{border:none;outline:none;background:transparent;font-size:11.5px;font-family:'DM Sans',sans-serif;min-width:130px;flex:1;color:var(--text-primary);}
+
+.cats-actions{display:flex;gap:8px;margin-top:.75rem;flex-wrap:wrap;}
+
+/* CHANGE PASSWORD */
+.pwd-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:1rem 0;}
 
 /* SAVE BAR */
 .save-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);padding:.85rem 1.5rem;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 16px rgba(0,0,0,.06);}
@@ -76,15 +104,6 @@ input[type=number]{width:80px;}
 .btn-save{font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;padding:10px 28px;border-radius:10px;border:none;background:var(--lcg-dark);color:#fff;cursor:pointer;transition:background .15s;}
 .btn-save:hover{background:var(--lcg-mid);}
 .save-ok{font-size:12px;color:var(--lcg-mid);font-weight:600;display:none;}
-
-/* CHANGE PASSWORD */
-.pwd-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-
-/* DIVIDER */
-.divider{height:1px;background:var(--border);margin:1rem 0;}
-
-/* BADGE */
-.badge-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -129,65 +148,28 @@ input[type=number]{width:80px;}
     </div>
   </div>
 
-  <!-- SECTION 2: STATUS CATEGORIES -->
+  <!-- SECTION 2: DESCARTE CATEGORIES -->
   <div class="section">
-    <div class="section-title">📊 Categorías de Estado</div>
-    <div class="section-desc">Define qué valores del campo "Estatus" de Monday corresponden a cada categoría. Escribe un valor y presiona Enter o coma para agregar.</div>
-
-    <div class="field-row">
-      <label class="field-label"><span class="badge-dot" style="background:#9B2335;margin-right:5px;"></span>Bajas / Inactivos (no se muestran como activos)</label>
-      <div class="tags-wrap" id="tags-baja" onclick="focusTagInput('baja')"></div>
-      <div class="field-hint">Ej: Descartado, Inactivo, No contactado, Archivado</div>
+    <div class="section-title">🗂 Categorías de Razón de Descarte</div>
+    <div class="section-desc">
+      Estas categorías clasifican automáticamente la razón de descarte de cada candidato.<br>
+      El dashboard lee el <strong>último comentario disponible</strong> y lo compara con las palabras clave de cada categoría.
+      Las categorías se evalúan <strong>en orden — primera coincidencia gana</strong>. La comparación ignora mayúsculas y tildes.
     </div>
 
-    <div class="field-row">
-      <label class="field-label"><span class="badge-dot" style="background:#7A3FBF;margin-right:5px;"></span>Descartados (análisis de descarte)</label>
-      <div class="tags-wrap" id="tags-descarte" onclick="focusTagInput('descarte')"></div>
-      <div class="field-hint">Ej: Descartado</div>
+    <div class="cats-note">
+      💡 <strong>Cómo funciona:</strong> Para cada candidato descartado, el sistema toma el último comentario registrado (o la razón de descarte si no hay comentario) y lo busca en las palabras clave de cada fila, de arriba hacia abajo. Arrastra las filas para cambiar la prioridad.
     </div>
 
-    <div class="field-row">
-      <label class="field-label"><span class="badge-dot" style="background:#C04040;margin-right:5px;"></span>Oferta Rechazada (excluidos de activos, visibles en Movimientos)</label>
-      <div class="tags-wrap" id="tags-oferta" onclick="focusTagInput('oferta')"></div>
-      <div class="field-hint">Ej: Oferta Rechazada — se descuentan del total de activos y aparecen como categoría separada en el waterfall.</div>
-    </div>
+    <div id="cats-container"></div>
 
-    <div class="field-row">
-      <label class="field-label"><span class="badge-dot" style="background:#1A6B3A;margin-right:5px;"></span>Contratados / Proceso completado</label>
-      <div class="tags-wrap" id="tags-contratado" onclick="focusTagInput('contratado')"></div>
-      <div class="field-hint">Ej: Contratado, Contratados, Oferta aceptada</div>
+    <div class="cats-actions">
+      <button class="btn-sm btn-green" onclick="addCat()">+ Agregar categoría</button>
+      <button class="btn-sm btn-ghost" onclick="resetCats()">↩ Restablecer predeterminados</button>
     </div>
-
   </div>
 
-  <!-- SECTION 3: THRESHOLDS -->
-  <div class="section">
-    <div class="section-title">⚙️ Umbrales y Alertas</div>
-    <div class="section-desc">Define los límites que determinan cuándo un candidato se marca con alerta.</div>
-
-    <div class="field-row">
-      <label class="field-label">Días sin actividad para alerta de inactividad</label>
-      <input type="number" id="cfg-inactive-days" value="14" min="1" max="365" />
-      <div class="field-hint">Candidatos sin actualización por más de estos días se marcan como inactivos.</div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="field-row">
-      <label class="field-label">Días en pipeline — alerta amarilla ⚠️</label>
-      <input type="number" id="cfg-days-amber" value="30" min="1" max="365" />
-      <div class="field-hint">Candidatos activos con más de estos días en el pipeline.</div>
-    </div>
-
-    <div class="field-row">
-      <label class="field-label">Días en pipeline — alerta roja 🔴</label>
-      <input type="number" id="cfg-days-red" value="60" min="1" max="365" />
-      <div class="field-hint">Candidatos activos con más de estos días en el pipeline.</div>
-    </div>
-
-  </div>
-
-  <!-- SECTION 4: CHANGE PASSWORD -->
+  <!-- SECTION 3: CHANGE PASSWORD -->
   <div class="section">
     <div class="section-title">🔒 Cambiar Contraseña</div>
     <div class="section-desc">Actualiza la contraseña de acceso a esta página. Requiere hacer push al repositorio después de guardar.</div>
@@ -221,32 +203,36 @@ input[type=number]{width:80px;}
 <script>
 // ── PASSWORD HASH (SHA-256) ────────────────────────────────────────
 // Default password: LCG2026
-// To change: use the "Cambiar contraseña" section, copy the hash, update PWD_HASH below, push to GitHub
 const PWD_HASH = 'ffd3efc881005e81f76d6a058ad1caca4d0a70b16eb4cdf2cba957a009046880';
 
 // ── GITHUB CONFIG ──────────────────────────────────────────────────
 const GITHUB_OWNER = 'LCGjorgeA';
 const GITHUB_REPO  = 'lcg-rh-report';
 
-// ── DEFAULTS ───────────────────────────────────────────────────────
-const DEFAULTS = {
-  baja:       ['Descartado','Inactivo','No contactado','Archivado','No interesado','Retirado','Oferta Rechazada'],
-  descarte:   ['Descartado'],
-  oferta:     ['Oferta Rechazada'],
-  contratado: ['Contratado','Contratados','Oferta aceptada'],
-  inactiveDays: 14,
-  daysAmber:    30,
-  daysRed:      60,
-};
+// ── DEFAULT CATS (must mirror lcg_dashboard_template_vf.html) ─────
+const DEFAULT_CATS = [
+  {id:'pyxoom',   name:'Pyxoom / Psicométrico',          color:'#1A56A0', kw:['pyxoom','psicométric','resultado no satisf','resultado de pyxoom','resultado en pyxoom','resultado bajo','aprobatori','menor a 90','muy bajo','no aprobatorio','puntaje','calificacion','score']},
+  {id:'salary',   name:'Brecha salarial',                 color:'#B05A00', kw:['expectativa','tabulador','económic','salario','gana','sueldo','ofrecer','ingreso','busca 200','160,000','130k','95,000','65mil','35mil','200mil','93,812','36,500','31,540','pretensiones','compensacion','compensation','rango salarial','fuera de rango','fuera del rango','encima del','por encima','por debajo del']},
+  {id:'leader',   name:'Decisión Jaime / Fray / Fer',     color:'#5B3DBF', kw:['jaime','fray','fer no','fer lo','a fer','no le gust','decision de','decisión de']},
+  {id:'withdraw', name:'Candidato se retira',             color:'#0A7A5A', kw:['no desea continuar','sale del proceso','ya no desea','salir del proceso','temas personales','oferta en otro lado','rechazó oferta','no acepto','no aceptó carta','rechazó la oferta','declino','declinó','retira','se retira','renuncia al proceso','acepta otra oferta','recibio otra oferta']},
+  {id:'change',   name:'Cambio de perfil / Requisitos',   color:'#3B6D11', kw:['actualización del perfil','cambio de perfil','op-td','nuevos requerimientos','ya no es candidata','ya no es candidato','perfil actualizado','posicion cancelada','posición cancelada','vacante cancelada','cambio de requisito','requisito cambió']},
+  {id:'mobility', name:'Movilidad / Disponibilidad',      color:'#A03020', kw:['reubic','viajes cortos','cleveland','asignación fija','guatemal','ecuatoria','pasaporte','residencia','disponibilidad','no puede viajar','no viaja','no disponible','tiempo parcial','part time']},
+  {id:'soft',     name:'Perfil / Imagen / Competencias',  color:'#7B5800', kw:['imagen','carisma','chispa','pasión','carácter','seguridad','autoconfianza','muy chico','universidad','logros medibles','no es el perfil','no cumple','competencias','no tiene experiencia','experiencia insuficiente','formacion academica','formación','falta de','no demuestra']},
+  {id:'tech',     name:'Perfil técnico insuficiente',     color:'#8B2252', kw:['conocimiento técnico','técnico','excel','power bi','powerbi','sql','python','no maneja','dominio','herramienta','conocimiento insuficiente','skill','habilidad técnica']},
+  {id:'case',     name:'Caso / BC / Panel',               color:'#1A5A80', kw:['panel','ppt','bc','caso','fuera de tiempo','sin diseño','entregó','mba','presentación','presentacion','caso de negocio','business case']},
+  {id:'filter',   name:'Filtro inicial / Sin respuesta',  color:'#5A6060', kw:['preguntas filtro','primer filtro','cuestionario','encuesta','recordatorio','mandó','mandaron','no respondió','no puede entrar','sin respuesta','no contesta','no respondio','no completó','no completo']},
+  {id:'interview',name:'No aprueba entrevista',           color:'#6B3A8B', kw:['entrevista','interview','no pasó','no paso','resultado de entrevista','desempeño en entrevista','feedback de entrevista','no avanza','bajo desempeño en']},
+];
 
 // ── STATE ──────────────────────────────────────────────────────────
-let tags = { baja: [], descarte: [], oferta: [], contratado: [] };
+let cats = [];
 let dirty = false;
+let dragSrcId = null;
 
 // ── LOGIN ──────────────────────────────────────────────────────────
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
 async function doLogin() {
@@ -261,7 +247,7 @@ async function doLogin() {
     const err = document.getElementById('login-err');
     err.style.display = 'block';
     document.getElementById('pwd-input').value = '';
-    setTimeout(()=>err.style.display='none', 3000);
+    setTimeout(() => err.style.display = 'none', 3000);
   }
 }
 
@@ -272,108 +258,236 @@ function doLogout() {
   document.getElementById('pwd-input').value = '';
 }
 
-// Auto-login if session active
 if (sessionStorage.getItem('lcg_config_auth') === '1') {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  loadConfig();
+  window.addEventListener('load', loadConfig);
 }
 
-// ── TAGS ───────────────────────────────────────────────────────────
-function renderTags(group) {
-  const wrap = document.getElementById('tags-' + group);
+// ── CATS RENDERING ─────────────────────────────────────────────────
+function renderCats() {
+  const container = document.getElementById('cats-container');
+  container.innerHTML = '';
+  cats.forEach(cat => renderCatRow(cat));
+  initDragDrop();
+}
+
+function renderCatRow(cat) {
+  const container = document.getElementById('cats-container');
+  const row = document.createElement('div');
+  row.className = 'cat-row';
+  row.dataset.cid = cat.id;
+  row.draggable = true;
+
+  const top = document.createElement('div');
+  top.className = 'cat-row-top';
+  top.innerHTML = `
+    <div class="cat-drag" title="Arrastra para reordenar">⠿</div>
+    <div class="cat-color-wrap">
+      <div class="cat-color-swatch" id="swatch-${cat.id}" style="background:${cat.color}" title="Clic para cambiar color" onclick="document.getElementById('color-${cat.id}').click()"></div>
+      <input type="color" class="cat-color-input" id="color-${cat.id}" value="${cat.color}" oninput="onColorChange('${cat.id}',this.value)">
+    </div>
+    <input type="text" class="cat-name-inp" id="catname-${cat.id}" value="${escHtml(cat.name)}" placeholder="Nombre de categoría..." oninput="onNameChange('${cat.id}',this.value)">
+    <button class="cat-del-btn" onclick="removeCat('${cat.id}')" title="Eliminar categoría">×</button>
+  `;
+  row.appendChild(top);
+
+  const kwWrap = document.createElement('div');
+  kwWrap.className = 'tags-wrap';
+  kwWrap.id = 'kw-' + cat.id;
+  kwWrap.onclick = () => focusKwInp(cat.id);
+  row.appendChild(kwWrap);
+
+  container.appendChild(row);
+  renderCatKws(cat.id);
+}
+
+function renderCatKws(cid) {
+  const wrap = document.getElementById('kw-' + cid);
+  if (!wrap) return;
+  const cat = cats.find(c => c.id === cid);
+  if (!cat) return;
+  const kws = cat.kw || [];
   wrap.innerHTML = '';
-  tags[group].forEach((val, i) => {
+
+  kws.forEach((kw, i) => {
     const t = document.createElement('span');
-    t.className = 'tag ' + group;
-    t.innerHTML = val + '<span class="tag-remove" onclick="removeTag(\'' + group + '\',' + i + ')">×</span>';
+    t.className = 'tag';
+    t.style.cssText = `background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}44;`;
+    const txt = document.createTextNode(kw);
+    t.appendChild(txt);
+    const rm = document.createElement('span');
+    rm.className = 'tag-remove';
+    rm.textContent = '×';
+    rm.title = 'Eliminar';
+    rm.onclick = (e) => { e.stopPropagation(); removeKw(cid, i); };
+    t.appendChild(rm);
     wrap.appendChild(t);
   });
+
   const inp = document.createElement('input');
   inp.className = 'tags-input';
-  inp.id = 'tag-input-' + group;
-  inp.placeholder = 'Escribe y presiona Enter...';
+  inp.id = 'kwinp-' + cid;
+  inp.placeholder = kws.length ? 'Agregar más...' : 'Escribe una palabra clave y presiona Enter...';
   inp.onkeydown = (e) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      addTag(group, inp.value.trim().replace(/,$/,''));
+      const val = inp.value.trim().replace(/,$/, '').toLowerCase();
+      if (val) addKw(cid, val);
       inp.value = '';
-    } else if (e.key === 'Backspace' && inp.value === '' && tags[group].length > 0) {
-      removeTag(group, tags[group].length - 1);
+    } else if (e.key === 'Backspace' && inp.value === '' && kws.length > 0) {
+      removeKw(cid, kws.length - 1);
     }
   };
   wrap.appendChild(inp);
 }
 
-function focusTagInput(group) {
-  const inp = document.getElementById('tag-input-' + group);
+function focusKwInp(cid) {
+  const inp = document.getElementById('kwinp-' + cid);
   if (inp) inp.focus();
 }
 
-function addTag(group, val) {
-  if (!val) return;
-  if (tags[group].includes(val)) return;
-  tags[group].push(val);
-  renderTags(group);
+function addKw(cid, kw) {
+  if (!kw) return;
+  const cat = cats.find(c => c.id === cid);
+  if (!cat) return;
+  if (!cat.kw) cat.kw = [];
+  if (!cat.kw.includes(kw)) {
+    cat.kw.push(kw);
+    renderCatKws(cid);
+    markDirty();
+  }
+}
+
+function removeKw(cid, idx) {
+  const cat = cats.find(c => c.id === cid);
+  if (!cat || !cat.kw) return;
+  cat.kw.splice(idx, 1);
+  renderCatKws(cid);
   markDirty();
 }
 
-function removeTag(group, idx) {
-  tags[group].splice(idx, 1);
-  renderTags(group);
+function onColorChange(cid, color) {
+  const cat = cats.find(c => c.id === cid);
+  if (!cat) return;
+  cat.color = color;
+  const swatch = document.getElementById('swatch-' + cid);
+  if (swatch) swatch.style.background = color;
+  renderCatKws(cid);
   markDirty();
+}
+
+function onNameChange(cid, name) {
+  const cat = cats.find(c => c.id === cid);
+  if (cat) { cat.name = name; markDirty(); }
+}
+
+function removeCat(cid) {
+  if (!confirm('¿Eliminar esta categoría?')) return;
+  cats = cats.filter(c => c.id !== cid);
+  renderCats();
+  markDirty();
+}
+
+function addCat() {
+  const id = 'cat_' + Date.now();
+  cats.push({ id, name: '', color: '#004A43', kw: [] });
+  renderCats();
+  setTimeout(() => {
+    const inp = document.getElementById('catname-' + id);
+    if (inp) inp.focus();
+  }, 40);
+  markDirty();
+}
+
+function resetCats() {
+  if (!confirm('¿Restablecer todas las categorías a los valores predeterminados? Esto sobreescribirá tus cambios.')) return;
+  cats = DEFAULT_CATS.map(c => ({ ...c, kw: [...c.kw] }));
+  renderCats();
+  markDirty();
+}
+
+// ── DRAG AND DROP ──────────────────────────────────────────────────
+function initDragDrop() {
+  document.querySelectorAll('.cat-row').forEach(row => {
+    row.addEventListener('dragstart', (e) => {
+      dragSrcId = row.dataset.cid;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragSrcId);
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      document.querySelectorAll('.cat-row').forEach(r => r.classList.remove('drag-over'));
+      dragSrcId = null;
+    });
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (row.dataset.cid !== dragSrcId) {
+        document.querySelectorAll('.cat-row').forEach(r => r.classList.remove('drag-over'));
+        row.classList.add('drag-over');
+      }
+    });
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('drag-over');
+    });
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('drag-over');
+      const srcId = dragSrcId;
+      if (!srcId || row.dataset.cid === srcId) return;
+      const srcIdx = cats.findIndex(c => c.id === srcId);
+      const dstIdx = cats.findIndex(c => c.id === row.dataset.cid);
+      if (srcIdx < 0 || dstIdx < 0) return;
+      const [moved] = cats.splice(srcIdx, 1);
+      cats.splice(dstIdx, 0, moved);
+      renderCats();
+      markDirty();
+    });
+
+    // Prevent drag from starting on tag-remove or inputs
+    row.querySelectorAll('input, button, .tag-remove').forEach(el => {
+      el.addEventListener('mousedown', e => e.stopPropagation());
+    });
+  });
 }
 
 // ── DIRTY / SAVE BAR ───────────────────────────────────────────────
 function markDirty() {
   dirty = true;
-  const bar = document.getElementById('save-bar');
-  bar.classList.add('visible');
+  document.getElementById('save-bar').classList.add('visible');
   document.getElementById('save-ok').style.display = 'none';
 }
 
-['cfg-inactive-days','cfg-days-amber','cfg-days-red'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('input', markDirty);
-});
-
-// ── LOAD CONFIG ────────────────────────────────────────────────────
+// ── LOAD / SAVE CONFIG ─────────────────────────────────────────────
 function loadConfig() {
   const stored = JSON.parse(localStorage.getItem('lcg_dashboard_config') || '{}');
-  const cfg = Object.assign({}, DEFAULTS, stored);
 
-  tags.baja       = cfg.baja       || DEFAULTS.baja;
-  tags.descarte   = cfg.descarte   || DEFAULTS.descarte;
-  tags.oferta     = cfg.oferta     || DEFAULTS.oferta;
-  tags.contratado = cfg.contratado || DEFAULTS.contratado;
+  if (stored.cats && Array.isArray(stored.cats) && stored.cats.length) {
+    cats = stored.cats.map(c => ({ ...c, kw: Array.isArray(c.kw) ? [...c.kw] : [] }));
+  } else {
+    cats = DEFAULT_CATS.map(c => ({ ...c, kw: [...c.kw] }));
+  }
 
-  ['baja','descarte','oferta','contratado'].forEach(renderTags);
+  renderCats();
 
-  document.getElementById('cfg-inactive-days').value = cfg.inactiveDays ?? DEFAULTS.inactiveDays;
-  document.getElementById('cfg-days-amber').value    = cfg.daysAmber    ?? DEFAULTS.daysAmber;
-  document.getElementById('cfg-days-red').value      = cfg.daysRed      ?? DEFAULTS.daysRed;
-
-  // PAT
   const pat = localStorage.getItem('lcg_refresh_pat') || '';
   document.getElementById('cfg-pat').value = pat;
-
-  document.getElementById('app').style.display = 'block';
 }
 
-// ── SAVE CONFIG ────────────────────────────────────────────────────
 function saveConfig() {
-  const cfg = {
-    baja:         tags.baja,
-    descarte:     tags.descarte,
-    oferta:       tags.oferta,
-    contratado:   tags.contratado,
-    inactiveDays: parseInt(document.getElementById('cfg-inactive-days').value) || 14,
-    daysAmber:    parseInt(document.getElementById('cfg-days-amber').value)    || 30,
-    daysRed:      parseInt(document.getElementById('cfg-days-red').value)      || 60,
-  };
+  // Sync name inputs into cats array (in case oninput missed anything)
+  cats.forEach(cat => {
+    const el = document.getElementById('catname-' + cat.id);
+    if (el) cat.name = el.value.trim();
+  });
+
+  // Merge cats into existing config (preserving any other keys like baja, daysAmber, etc.)
+  const existing = JSON.parse(localStorage.getItem('lcg_dashboard_config') || '{}');
+  const cfg = { ...existing, cats };
   localStorage.setItem('lcg_dashboard_config', JSON.stringify(cfg));
 
-  // Save PAT separately
   const pat = document.getElementById('cfg-pat').value.trim();
   if (pat) localStorage.setItem('lcg_refresh_pat', pat);
   else     localStorage.removeItem('lcg_refresh_pat');
@@ -389,10 +503,7 @@ function saveConfig() {
 // ── REFRESH ────────────────────────────────────────────────────────
 function triggerRefresh() {
   const pat = document.getElementById('cfg-pat').value.trim();
-  if (!pat) {
-    setFeedback('Ingresa tu token primero.', 'var(--red)');
-    return;
-  }
+  if (!pat) { setFeedback('Ingresa tu token primero.', 'var(--red)'); return; }
   setFeedback('Disparando workflow...', 'var(--text-muted)');
   fetch('https://api.github.com/repos/' + GITHUB_OWNER + '/' + GITHUB_REPO + '/actions/workflows/refresh.yml/dispatches', {
     method: 'POST',
@@ -405,7 +516,6 @@ function triggerRefresh() {
   }).then(r => {
     if (r.status === 204) {
       setFeedback('✓ Workflow disparado — regresa en ~3 min y recarga el dashboard.', 'var(--lcg-mid)');
-      // Save PAT if it worked
       localStorage.setItem('lcg_refresh_pat', pat);
     } else {
       return r.text().then(t => { throw new Error(r.status + ': ' + t); });
@@ -439,10 +549,10 @@ async function generateNewHash() {
   el.innerHTML = 'Copia este hash y reemplaza el valor de <code>PWD_HASH</code> en config.html, luego haz push:<br><br><strong>' + hash + '</strong>';
 }
 
-// Init tag inputs on load
-window.addEventListener('load', () => {
-  if (sessionStorage.getItem('lcg_config_auth') === '1') loadConfig();
-});
+// ── UTILS ──────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
 </body>
 </html>

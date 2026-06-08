@@ -519,7 +519,10 @@ const NIVEL_COLORS={Alto:'#1A56A0',Sr:'#5B3DBF',Jr:'#6B7280',Bajo:'#B05A00'};
 const NIVEL_LIST=['Alto','Sr','Jr','Bajo'];
 const MN=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-const CATS=[
+// ── Load config from localStorage (before CATS so we can override) ──
+const _storedCfg=(()=>{try{return JSON.parse(localStorage.getItem('lcg_dashboard_config')||'{}');}catch(e){return{};}})();
+
+let CATS=[
   {id:'pyxoom',  name:'Pyxoom / Psicométrico',         color:'#1A56A0',kw:['pyxoom','psicométric','resultado no satisf','resultado de pyxoom','resultado en pyxoom','resultado bajo','aprobatori','menor a 90','muy bajo','no aprobatorio','puntaje','calificacion','score']},
   {id:'salary',  name:'Brecha salarial',                color:'#B05A00',kw:['expectativa','tabulador','económic','salario','gana','sueldo','ofrecer','ingreso','busca 200','160,000','130k','95,000','65mil','35mil','200mil','93,812','36,500','31,540','pretensiones','compensacion','compensation','rango salarial','fuera de rango','fuera del rango','encima del','por encima','por debajo del']},
   {id:'leader',  name:'Decisión Jaime / Fray / Fer',    color:'#5B3DBF',kw:['jaime','fray','fer no','fer lo','a fer','no le gust','decision de','decisión de']},
@@ -533,6 +536,27 @@ const CATS=[
   {id:'interview',name:'No aprueba entrevista',         color:'#6B3A8B',kw:['entrevista','interview','no pasó','no paso','resultado de entrevista','desempeño en entrevista','feedback de entrevista','no avanza','bajo desempeño en']},
 ];
 
+// Override with user-configured categories if present
+if(_storedCfg.cats&&Array.isArray(_storedCfg.cats)&&_storedCfg.cats.length){
+  CATS=_storedCfg.cats.map(c=>({...c,kw:Array.isArray(c.kw)?c.kw:[]}));
+}
+
+// Build comment lookup BEFORE enriching data: item_id -> last comment text
+const commentMap={};
+if(typeof COMMENTS_DATA!=='undefined'&&Array.isArray(COMMENTS_DATA)){
+  COMMENTS_DATA.forEach(c=>{
+    const id=String(c.item_id||'');
+    const txt=(c.comentario||c.comment||c.text||'').trim();
+    if(!txt||commentMap[id])return;
+    commentMap[id]=txt;
+  });
+}
+// Returns best available text for categorizing a candidate's descarte reason
+function bestTextForCat(d){
+  const id=String(d.item_id||'');
+  return commentMap[id]||d.razon||d.ultimo_comentario||'';
+}
+
 function getCat(r){
   if(!r||r.trim().length<3)return{id:'sin_razon',name:'Sin razón documentada',color:'#9A9A9A'};
   const s=r.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -544,20 +568,8 @@ function getCat(r){
 // ═══════════════════════════════════════════════════════════
 // SETUP — enrich data
 // ═══════════════════════════════════════════════════════════
-const descData=(typeof DESCARTADOS_DATA!=='undefined'?DESCARTADOS_DATA:[]).map(d=>({...d,cat:getCat(d.razon)}));
-const pipeData=(typeof PIPELINE_DATA!=='undefined'?PIPELINE_DATA:[]).map(d=>({...d,cat:getCat(d.razon)}));
-
-// Build comment lookup: item_id → best comment text
-// COMMENTS_DATA is pre-sorted newest-first by Python; first match per id wins
-const commentMap={};
-if(typeof COMMENTS_DATA!=='undefined'&&Array.isArray(COMMENTS_DATA)){
-  COMMENTS_DATA.forEach(c=>{
-    const id=String(c.item_id||'');
-    const txt=(c.comentario||c.comment||c.text||'').trim();
-    if(!txt||commentMap[id])return;
-    commentMap[id]=txt;
-  });
-}
+const descData=(typeof DESCARTADOS_DATA!=='undefined'?DESCARTADOS_DATA:[]).map(d=>({...d,cat:getCat(bestTextForCat(d))}));
+const pipeData=(typeof PIPELINE_DATA!=='undefined'?PIPELINE_DATA:[]).map(d=>({...d,cat:getCat(bestTextForCat(d))}));
 // Index descartados reasons by item_id and nombre (descData has the rejection reason)
 const descReasonById={};
 const descReasonByName={};
@@ -601,7 +613,7 @@ function stageAbr(g){if(!g)return'—';const k=Object.keys(STAGE_ABR).find(s=>g.
 function stageIdx(g){return STAGES.findIndex(s=>g&&g.includes(s));}
 function nivelCls(n){const m={Alto:'pill-alto',Sr:'pill-sr',Jr:'pill-jr',Bajo:'pill-bajo'};return'pill '+(m[n]||'pill-jr');}
 function scoreClass(s){if(s==null)return'';const n=parseFloat(s);if(isNaN(n))return'';return n<75?'score-low':n<88?'score-mid':'score-ok';}
-const _storedCfg=(()=>{try{return JSON.parse(localStorage.getItem('lcg_dashboard_config')||'{}');}catch(e){return{};}})();
+// _storedCfg is defined earlier (before CATS) — no re-declaration here
 const _DEFAULTS_BAJA=['Descartado','Inactivo','Contratado','Contratados','Oferta Rechazada'];
 // Always exclude Contratado/Contratados regardless of config (they are never "activos")
 const _ALWAYS_EXCL=['Contratado','Contratados'];
