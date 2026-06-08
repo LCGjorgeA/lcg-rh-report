@@ -1857,18 +1857,18 @@ function renderInactivos(){
         if(bar){
           diasC.style.cursor='pointer';
           const n=bar.cands.length;
-          let h=`<div style="font-weight:700;color:var(--lcg-dark);margin-bottom:6px">${bar.low}–${bar.high} días — ${n} candidato${n!==1?'s':''}</div>`;
+          let h=`<div style="font-weight:700;color:#A9F6E8;margin-bottom:6px">${bar.low}–${bar.high} días en pipeline — ${n} candidato${n!==1?'s':''}</div>`;
           bar.cands.slice(0,8).forEach(d=>{
             const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
-            const dc=d.dias_pipeline>30?'#9B2335':d.dias_pipeline>14?'#B05A00':'#1A6B3A';
-            h+=`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.05)">
-              <span style="font-size:11px;font-weight:500;flex:1;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</span>
-              <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${sc}18;color:${sc};white-space:nowrap">${stageAbr(d.grupo)}</span>
-              <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span>
+            const dc=d.dias_pipeline>30?'#F5A0A0':d.dias_pipeline>14?'#F5C97A':'#A9F6E8';
+            h+=`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.07)">
+              <span style="font-size:11px;font-weight:500;flex:1;color:#E8E2DC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</span>
+              <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.12);color:#CBD5D4;white-space:nowrap">${stageAbr(d.grupo)}</span>
+              <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${nc}28;color:${nc}">${safe(d.nivel,'—')}</span>
               <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${dc}">${d.dias_pipeline}d</span>
             </div>`;
           });
-          if(n>8)h+=`<div style="font-size:10px;color:var(--text-muted);margin-top:4px">+ ${n-8} más…</div>`;
+          if(n>8)h+=`<div style="font-size:10px;color:#8AA8A5;margin-top:4px">+ ${n-8} más…</div>`;
           showTip(ev,h);
         }else{diasC.style.cursor='default';hideTip();}
       });
@@ -1876,39 +1876,52 @@ function renderInactivos(){
     }else{ctx.fillStyle='#8AA8A5';ctx.font='12px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('Sin datos de días en pipeline',W/2,H/2);}
   }
 
-  // Stalled candidates — active pipeline only (no bajas), ranked by most days
+  // Stalled candidates — active pipeline only (no bajas), ranked by days since last movement
   const stalledEl=document.getElementById('inact-stalled');
   if(stalledEl){
     stalledEl.innerHTML='';
-    const sorted=[...pipeData.filter(isActive)].sort((a,b)=>{
-      const da=a.dias_pipeline??-1,db=b.dias_pipeline??-1;
-      if(db!==da)return db-da;
-      return(toDate(a.actualizado||a.creado_en)||0)-(toDate(b.actualizado||b.creado_en)||0);
+    const _now=new Date();
+    function diasSinMov(d){const t=toDate(d.actualizado||d.creado_en);return t?Math.max(0,Math.floor((_now-t)/86400000)):null;}
+    const activeCands=pipeData.filter(isActive).map(d=>({...d,_dsm:diasSinMov(d)}));
+    const sorted=[...activeCands].sort((a,b)=>{
+      const da=a._dsm??-1,db=b._dsm??-1;
+      return db-da;
     });
+    const COLS='32px 1fr 120px 60px 68px 76px 64px';
     const wrap=document.createElement('div');
     wrap.style.cssText='background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:1.5rem;';
     const hdr=document.createElement('div');
-    hdr.style.cssText='display:grid;grid-template-columns:28px 1fr 110px 64px 72px 56px;gap:8px;padding:8px 14px;border-bottom:2px solid var(--border);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);background:#FAFAF9;';
-    hdr.innerHTML='<div>#</div><div>Candidato</div><div>Etapa</div><div>Nivel</div><div>Última act.</div><div style="text-align:right">Días</div>';
+    hdr.style.cssText=`display:grid;grid-template-columns:${COLS};gap:6px;padding:8px 14px;border-bottom:2px solid var(--border);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);background:#FAFAF9;`;
+    hdr.innerHTML='<div>#</div><div>Candidato</div><div>Etapa</div><div>Nivel</div><div>Inicio</div><div>Ult. cambio</div><div style="text-align:right">Sin mov.</div>';
     wrap.appendChild(hdr);
-    sorted.slice(0,20).forEach((d,i)=>{
+    sorted.slice(0,25).forEach((d,i)=>{
       const nc=NIVEL_COLORS[d.nivel]||'#888',sc=stageColor(d.grupo);
-      const diasVal=d.dias_pipeline!=null?d.dias_pipeline:null;
-      const diasColor=diasVal==null?'var(--text-muted)':diasVal>60?'#9B2335':diasVal>30?'#B05A00':'#1A6B3A';
+      const dsm=d._dsm;
+      const dsmColor=dsm==null?'var(--text-muted)':dsm>30?'#9B2335':dsm>14?'#B05A00':'#1A6B3A';
       const row=document.createElement('div');
-      row.style.cssText=`display:grid;grid-template-columns:28px 1fr 110px 64px 72px 56px;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border);align-items:center;background:${i%2?'#FAFAF9':'#fff'};cursor:default;`;
+      row.style.cssText=`display:grid;grid-template-columns:${COLS};gap:6px;padding:9px 14px;border-bottom:1px solid var(--border);align-items:center;background:${i%2?'#FAFAF9':'#fff'};cursor:default;`;
       row.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--text-muted)">${i+1}</div>
         <div style="font-size:12px;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${safe(d.nombre,'—')}</div>
-        <div><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:${sc}18;color:${sc};white-space:nowrap">${safe(d.grupo,'—')}</span></div>
+        <div><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:${sc}18;color:${sc};white-space:nowrap;display:inline-block;max-width:110px;overflow:hidden;text-overflow:ellipsis">${safe(d.grupo,'—')}</span></div>
         <div><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span></div>
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted)">${fmtShort(d.actualizado||d.creado_en)}</div>
-        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${diasColor};text-align:right">${diasVal!=null?diasVal+'d':'—'}</div>`;
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted)">${fmt(d.creado_en)}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted)">${fmt(d.actualizado)}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${dsmColor};text-align:right">${dsm!=null?dsm+'d':'—'}</div>`;
       const cmt=getBestComment(d);
-      row.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:4px">${safe(d.nombre,'—')}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo,'—')} · Nivel <span style="color:${nc}">${safe(d.nivel,'—')}</span></div><div style="font-size:10px;color:#8AA8A5;margin-top:2px">Última actividad: ${fmt(d.actualizado||d.creado_en)}</div>${cmt?`<div style="font-size:11px;color:#CBD5D4;margin-top:5px;border-top:1px solid rgba(255,255,255,.1);padding-top:5px">${cmt}</div>`:''}`));
+      row.addEventListener('mouseenter',e=>showTip(e,
+        `<div style="font-weight:600;color:#A9F6E8;margin-bottom:5px">${safe(d.nombre,'—')}</div>`+
+        `<div style="font-size:10px;color:#8AA8A5;margin-bottom:2px">${safe(d.grupo,'—')} · Nivel <span style="color:${nc}">${safe(d.nivel,'—')}</span></div>`+
+        `<div style="display:flex;gap:14px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)">`+
+          `<div><div style="font-size:8px;color:#8AA8A5;text-transform:uppercase;letter-spacing:.08em">Inicio</div><div style="font-size:11px;font-family:'DM Mono',monospace;color:#CBD5D4">${fmt(d.creado_en)}</div></div>`+
+          `<div><div style="font-size:8px;color:#8AA8A5;text-transform:uppercase;letter-spacing:.08em">Ult. cambio</div><div style="font-size:11px;font-family:'DM Mono',monospace;color:#CBD5D4">${fmt(d.actualizado)}</div></div>`+
+          `<div><div style="font-size:8px;color:#8AA8A5;text-transform:uppercase;letter-spacing:.08em">Sin movimiento</div><div style="font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:${dsmColor}">${dsm!=null?dsm+'d':'—'}</div></div>`+
+        `</div>`+
+        (cmt?`<div style="font-size:11px;color:#CBD5D4;margin-top:6px;border-top:1px solid rgba(255,255,255,.1);padding-top:6px;line-height:1.5">${cmt}</div>`:'')
+      ));
       row.addEventListener('mousemove',moveTip);row.addEventListener('mouseleave',hideTip);
       wrap.appendChild(row);
     });
-    if(sorted.length>20){const more=document.createElement('div');more.style.cssText='padding:8px 14px;font-size:11px;color:var(--text-muted);';more.textContent=`+ ${sorted.length-20} candidatos más…`;wrap.appendChild(more);}
+    if(sorted.length>25){const more=document.createElement('div');more.style.cssText='padding:8px 14px;font-size:11px;color:var(--text-muted);';more.textContent=`+ ${sorted.length-25} candidatos más…`;wrap.appendChild(more);}
     stalledEl.appendChild(wrap);
   }
 
