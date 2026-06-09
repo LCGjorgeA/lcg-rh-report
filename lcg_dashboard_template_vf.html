@@ -329,6 +329,10 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
 
 <!-- ═══ TAB 1: PIPELINE ═══ -->
 <div class="tab-panel active" id="tab-pipeline">
+  <div id="pipeline-puesto-filter-wrap" style="display:none;margin-bottom:1rem;">
+    <div class="section-label">Puesto <span style="font-size:9px;color:var(--text-muted);text-transform:none;letter-spacing:0;">(múltiple)</span></div>
+    <div class="filter-group" id="filter-pipeline-puesto"></div>
+  </div>
   <div class="kpi-row kpi-row-5" id="kpi-activo"></div>
   <div class="section-label">Embudo activo — ancho proporcional al volumen, colores = nivel</div>
   <div class="funnel-wrap">
@@ -343,10 +347,6 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
   <div id="vacante-global-bar" style="display:none;align-items:center;gap:8px;margin-bottom:1rem;padding:8px 14px;background:#EAF5F2;border:1px solid #B2D8D0;border-radius:10px;">
     <span style="font-size:11px;font-weight:600;color:#004A43;letter-spacing:.04em;text-transform:uppercase">Vacante activa</span>
     <span id="vacante-global-label" style="font-size:12px;font-weight:700;color:#004A43;background:#fff;padding:3px 10px;border-radius:6px;border:1px solid #B2D8D0"></span>
-  </div>
-  <div id="pipeline-puesto-filter-wrap" style="display:none;margin-bottom:1rem;">
-    <div class="section-label">Puesto <span style="font-size:9px;color:var(--text-muted);text-transform:none;letter-spacing:0;">(múltiple)</span></div>
-    <div class="filter-group" id="filter-pipeline-puesto"></div>
   </div>
   <div class="section-label">Candidatos activos — ingreso semanal (más reciente primero)</div>
   <div class="card"><div id="weekly-activo"></div></div>
@@ -1015,7 +1015,7 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
       const row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 14px;border-top:1px solid #F5F0EC;font-size:11px;flex-wrap:wrap;';
       row.dataset.vacante=d.vacante||'';
-      row.innerHTML=`<div style="flex:1;min-width:120px;font-weight:500;color:var(--text-primary)">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div><span style="background:${nc}18;color:${nc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span><span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.grupo,'—')}</span>${d.dias_pipeline!=null?`<span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text-muted)">${d.dias_pipeline}d</span>`:''}<span style="font-size:9px;color:var(--text-muted);margin-left:auto">${safe(d.fuente,'—')}</span>${d.vacante?`<span style="font-size:9px;background:#EAF5F2;color:#004A43;padding:2px 7px;border-radius:4px;font-weight:600;white-space:nowrap">${safe(d.vacante)}</span>`:''}`;
+      row.innerHTML=`<div style="flex:1;min-width:120px;font-weight:500;color:var(--text-primary)">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div><span style="background:${nc}18;color:${nc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span><span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.grupo,'—')}</span>${d.dias_pipeline!=null?`<span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text-muted)">${d.dias_pipeline}d</span>`:''}<span style="font-size:9px;color:var(--text-muted);margin-left:auto">${safe(d.fuente,'—')}</span>`;
       row.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)}</div>${d.vacante?`<div style="font-size:10px;color:#A9F6E8;margin-top:5px;font-weight:600;letter-spacing:.02em">📋 ${safe(d.vacante)}</div>`:''} ${d.pyxoom!=null?`<div style="font-size:10px;color:#8AA8A5;margin-top:3px">Pyxoom: ${parseFloat(d.pyxoom).toFixed(1)}</div>`:''}`));
       row.addEventListener('mousemove',moveTip);row.addEventListener('mouseleave',hideTip);
       det.appendChild(row);
@@ -1038,7 +1038,7 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
     card.dataset.vacante=d.vacante||'';
     card.innerHTML=`<div class="cand-accent" style="background:${nc}"></div>
       <div class="cand-info"><div class="cand-name">${safe(d.nombre)}</div>
-      <div class="cand-sub">Fuente: ${safe(d.fuente)} · Ingresó ${fmt(d.creado_en)}${d.entrevistador?' · '+d.entrevistador:''}${d.vacante?` · <span style="color:#004A43;font-weight:600">${safe(d.vacante)}</span>`:''}</div></div>
+      <div class="cand-sub">Fuente: ${safe(d.fuente)} · Ingresó ${fmt(d.creado_en)}${d.entrevistador?' · '+d.entrevistador:''}</div></div>
       <div class="cand-meta">
         <span class="badge badge-stage" style="background:${sc}18;color:${sc}">${stageAbr(d.grupo)}</span>
         <span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span>
