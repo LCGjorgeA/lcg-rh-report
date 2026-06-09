@@ -344,6 +344,10 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
     <span style="font-size:11px;font-weight:600;color:#004A43;letter-spacing:.04em;text-transform:uppercase">Vacante activa</span>
     <span id="vacante-global-label" style="font-size:12px;font-weight:700;color:#004A43;background:#fff;padding:3px 10px;border-radius:6px;border:1px solid #B2D8D0"></span>
   </div>
+  <div id="pipeline-puesto-filter-wrap" style="display:none;margin-bottom:1rem;">
+    <div class="section-label">Puesto <span style="font-size:9px;color:var(--text-muted);text-transform:none;letter-spacing:0;">(múltiple)</span></div>
+    <div class="filter-group" id="filter-pipeline-puesto"></div>
+  </div>
   <div class="section-label">Candidatos activos — ingreso semanal (más reciente primero)</div>
   <div class="card"><div id="weekly-activo"></div></div>
   <div class="section-label">Todos los candidatos activos</div>
@@ -367,6 +371,10 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
       <button class="date-shortcut" id="btn-semana" onclick="setDateRange('week',this)">Esta semana</button>
       <button class="date-shortcut" id="btn-mes" onclick="setDateRange('month',this)">Este mes</button>
     </div>
+  </div>
+  <div id="mov-puesto-filter-wrap" style="display:none;margin-bottom:1rem;">
+    <div class="section-label">Puesto <span style="font-size:9px;color:var(--text-muted);text-transform:none;letter-spacing:0;">(múltiple)</span></div>
+    <div class="filter-group" id="filter-mov-puesto"></div>
   </div>
   <div class="kpi-row kpi-row-8" id="kpi-mov"></div>
 
@@ -396,6 +404,10 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
     <button class="subtab active" data-subtab="desc">⛔ Descartados</button>
     <button class="subtab" data-subtab="inact">😴 Inactivos</button>
     <button class="subtab" data-subtab="oferta">❌ Oferta Rechazada</button>
+  </div>
+  <div id="baja-puesto-filter-wrap" style="display:none;margin-bottom:1rem;">
+    <div class="section-label">Puesto <span style="font-size:9px;color:var(--text-muted);text-transform:none;letter-spacing:0;">(múltiple)</span></div>
+    <div class="filter-group" id="filter-baja-puesto"></div>
   </div>
 
   <!-- ── SUB-TAB: DESCARTADOS ── -->
@@ -580,6 +592,10 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
   <div style="margin-bottom:1rem;">
     <div class="section-label">Etapa <span style="font-size:9px;color:var(--text-muted);text-transform:none;letter-spacing:0;">(múltiple)</span></div>
     <div class="filter-group" id="filter-etapa"></div>
+  </div>
+  <div id="detalle-puesto-filter-wrap" style="display:none;margin-bottom:1rem;">
+    <div class="section-label">Puesto <span style="font-size:9px;color:var(--text-muted);text-transform:none;letter-spacing:0;">(múltiple)</span></div>
+    <div class="filter-group" id="filter-puesto"></div>
   </div>
   <div class="detail-wrap">
     <div class="detail-header">
@@ -998,6 +1014,7 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
       const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
       const row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 14px;border-top:1px solid #F5F0EC;font-size:11px;flex-wrap:wrap;';
+      row.dataset.vacante=d.vacante||'';
       row.innerHTML=`<div style="flex:1;min-width:120px;font-weight:500;color:var(--text-primary)">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div><span style="background:${nc}18;color:${nc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span><span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.grupo,'—')}</span>${d.dias_pipeline!=null?`<span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text-muted)">${d.dias_pipeline}d</span>`:''}<span style="font-size:9px;color:var(--text-muted);margin-left:auto">${safe(d.fuente,'—')}</span>${d.vacante?`<span style="font-size:9px;background:#EAF5F2;color:#004A43;padding:2px 7px;border-radius:4px;font-weight:600;white-space:nowrap">${safe(d.vacante)}</span>`:''}`;
       row.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)}</div>${d.vacante?`<div style="font-size:10px;color:#A9F6E8;margin-top:5px;font-weight:600;letter-spacing:.02em">📋 ${safe(d.vacante)}</div>`:''} ${d.pyxoom!=null?`<div style="font-size:10px;color:#8AA8A5;margin-top:3px">Pyxoom: ${parseFloat(d.pyxoom).toFixed(1)}</div>`:''}`));
       row.addEventListener('mousemove',moveTip);row.addEventListener('mouseleave',hideTip);
@@ -1018,6 +1035,7 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
   [...activos].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0)).forEach(d=>{
     const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
     const card=document.createElement('div');card.className='cand-card';
+    card.dataset.vacante=d.vacante||'';
     card.innerHTML=`<div class="cand-accent" style="background:${nc}"></div>
       <div class="cand-info"><div class="cand-name">${safe(d.nombre)}</div>
       <div class="cand-sub">Fuente: ${safe(d.fuente)} · Ingresó ${fmt(d.creado_en)}${d.entrevistador?' · '+d.entrevistador:''}${d.vacante?` · <span style="color:#004A43;font-weight:600">${safe(d.vacante)}</span>`:''}</div></div>
@@ -1031,10 +1049,44 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
   });
 })();
 
+// Pipeline puesto filter builder
+(function(){
+  let _pipelinePuestoFilter=new Set();
+  const puestos=[...new Set(pipeData.map(d=>d.vacante).filter(Boolean))].sort();
+  if(!puestos.length)return;
+  const wrap=document.getElementById('pipeline-puesto-filter-wrap');
+  const fc=document.getElementById('filter-pipeline-puesto');
+  if(wrap)wrap.style.display='';
+  function apply(){
+    const active=_pipelinePuestoFilter.size>0;
+    document.querySelectorAll('#weekly-activo [data-vacante]').forEach(el=>{
+      el.style.display=(active&&!_pipelinePuestoFilter.has(el.dataset.vacante))?'none':'';
+    });
+    document.querySelectorAll('#cand-cards-wrap [data-vacante]').forEach(el=>{
+      el.style.display=(active&&!_pipelinePuestoFilter.has(el.dataset.vacante))?'none':'';
+    });
+  }
+  const allBtn=document.createElement('button');allBtn.className='filter-btn on';allBtn.textContent='Todos';
+  allBtn.onclick=()=>{_pipelinePuestoFilter.clear();fc.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allBtn.classList.add('on');apply();};
+  fc.appendChild(allBtn);
+  puestos.forEach(p=>{
+    const btn=document.createElement('button');btn.className='filter-btn';btn.textContent=p;
+    btn.onclick=()=>{
+      if(_pipelinePuestoFilter.has(p)){_pipelinePuestoFilter.delete(p);btn.classList.remove('on');}
+      else{_pipelinePuestoFilter.add(p);btn.classList.add('on');}
+      allBtn.classList.toggle('on',_pipelinePuestoFilter.size===0);
+      apply();
+    };
+    fc.appendChild(btn);
+  });
+})();
+
 // ═══════════════════════════════════════════════════════════
 // TAB 2: MOVIMIENTOS
 // ═══════════════════════════════════════════════════════════
 let _movNivelFilter=new Set();
+let _movPuestoFilter=new Set();
+let _bajaPuestoFilter=new Set();
 
 function setDateRange(preset,btn){
   const today=todayStr();
@@ -1101,11 +1153,19 @@ function renderMovimientos(){
    {label:'Total movimientos',val:newEntries.length+stageMovers.length+descartadosInPeriod.length+inactivosInPeriod.length+ofertaRechazadaInPeriod.length+contratadosInPeriod.length,sub:'Ingresos + cambios + bajas',cls:''},
   ].forEach(k=>{kpiEl.innerHTML+=`<div class="kpi ${k.dark?'dark':k.cls||''}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div>${(!k.dark&&!k.cls)?'<div class="kpi-bar"></div>':''}</div>`;});
 
+  // ── Shared waterfall filter helper ───────────────────────────────
+  function applyWfFilters(){
+    const fp=s=>_movPuestoFilter.size===0?s:s.filter(d=>_movPuestoFilter.has(d.vacante));
+    const fn=s=>_movNivelFilter.size===0?s:s.filter(d=>_movNivelFilter.has(d.nivel));
+    const f=s=>fn(fp(s));
+    drawWaterfall(f(activosInicialesActive),f(newEntries),f(descartadosInPeriod),f(inactivosInPeriod),f(ofertaRechazadaInPeriod),f(contratadosInPeriod),f(activosFinales));
+  }
+
   // ── Nivel filter buttons ──────────────────────────────────────────
   const wfFilters=document.getElementById('wf-nivel-filters');wfFilters.innerHTML='';
   _movNivelFilter.clear();
   const allBtn=document.createElement('button');allBtn.className='filter-btn on';allBtn.textContent='Todos los niveles';
-  allBtn.onclick=()=>{_movNivelFilter.clear();wfFilters.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allBtn.classList.add('on');drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,contratadosInPeriod,activosFinales);};
+  allBtn.onclick=()=>{_movNivelFilter.clear();wfFilters.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allBtn.classList.add('on');applyWfFilters();};
   wfFilters.appendChild(allBtn);
   NIVEL_LIST.forEach(nv=>{
     const btn=document.createElement('button');btn.className='filter-btn';btn.textContent=nv;
@@ -1114,13 +1174,34 @@ function renderMovimientos(){
       if(_movNivelFilter.has(nv)){_movNivelFilter.delete(nv);btn.classList.remove('on');}
       else{_movNivelFilter.add(nv);btn.classList.add('on');}
       allBtn.classList.toggle('on',_movNivelFilter.size===0);
-      const f=s=>_movNivelFilter.size===0?s:s.filter(d=>_movNivelFilter.has(d.nivel));
-      drawWaterfall(f(activosInicialesActive),f(newEntries),f(descartadosInPeriod),f(inactivosInPeriod),f(ofertaRechazadaInPeriod),f(contratadosInPeriod),f(activosFinales));
+      applyWfFilters();
     };
     wfFilters.appendChild(btn);
   });
 
-  drawWaterfall(activosInicialesActive,newEntries,descartadosInPeriod,inactivosInPeriod,ofertaRechazadaInPeriod,contratadosInPeriod,activosFinales);
+  // ── Puesto filter buttons ─────────────────────────────────────────
+  const pfWrap=document.getElementById('mov-puesto-filter-wrap');
+  const pfEl=document.getElementById('filter-mov-puesto');
+  _movPuestoFilter.clear();
+  const movPuestos=[...new Set(pipeData.map(d=>d.vacante).filter(Boolean))].sort();
+  if(movPuestos.length&&pfWrap&&pfEl){
+    pfWrap.style.display='';pfEl.innerHTML='';
+    const allPBtn=document.createElement('button');allPBtn.className='filter-btn on';allPBtn.textContent='Todos los puestos';
+    allPBtn.onclick=()=>{_movPuestoFilter.clear();pfEl.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allPBtn.classList.add('on');applyWfFilters();};
+    pfEl.appendChild(allPBtn);
+    movPuestos.forEach(p=>{
+      const btn=document.createElement('button');btn.className='filter-btn';btn.textContent=p;
+      btn.onclick=()=>{
+        if(_movPuestoFilter.has(p)){_movPuestoFilter.delete(p);btn.classList.remove('on');}
+        else{_movPuestoFilter.add(p);btn.classList.add('on');}
+        allPBtn.classList.toggle('on',_movPuestoFilter.size===0);
+        applyWfFilters();
+      };
+      pfEl.appendChild(btn);
+    });
+  }
+
+  applyWfFilters();
 
   // ── Movimientos entre etapas ──────────────────────────────────────
   // Sort priority: 0=intra-etapa, 1=nuevo ingreso, 2=exits (bajas al final)
@@ -1322,12 +1403,12 @@ function renderMovimientos(){
   const logEl=document.getElementById('merged-activity-log');logEl.innerHTML='';
   const allLogEntries=[];
   // stageMovers already computed above (reuse)
-  newEntries.forEach(d=>{const comment=getBestComment(d);allLogEntries.push({date:d.creado_en,cand:d.nombre,type:'ingreso',detail:`Ingresó al pipeline en <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>. Fuente: ${safe(d.fuente,'—')}.${comment?` <em>${comment.slice(0,100)}${comment.length>100?'…':''}</em>`:''}`,nivel:d.nivel});});
-  stageMovers.forEach(d=>{allLogEntries.push({date:d.actualizado,cand:d.nombre,type:'movimiento',detail:`Actualizado en etapa <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>.`,nivel:d.nivel});});
-  descartadosInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'descarte',detail:`Descartado en <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
-  inactivosInPeriod.forEach(d=>{allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'inactivo',detail:`Pasado a <b>Inactivo</b> en etapa ${safe(d.grupo,'—')}.`,nivel:d.nivel});});
-  ofertaRechazadaInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'oferta',detail:`Oferta rechazada en etapa <b>${safe(d.grupo,'—')}</b>. <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
-  contratadosInPeriod.forEach(d=>{const cmt=getBestComment(d);allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'contratado',detail:`✓ Contratado en etapa <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>.`+(cmt?` <em>${cmt.slice(0,120)}${cmt.length>120?'…':''}</em>`:''),nivel:d.nivel});});
+  newEntries.forEach(d=>{const comment=getBestComment(d);allLogEntries.push({date:d.creado_en,cand:d.nombre,type:'ingreso',detail:`Ingresó al pipeline en <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>. Fuente: ${safe(d.fuente,'—')}.${d.vacante?` Puesto: <b>${safe(d.vacante)}</b>.`:''}${comment?` <em>${comment.slice(0,100)}${comment.length>100?'…':''}</em>`:''}`,nivel:d.nivel});});
+  stageMovers.forEach(d=>{allLogEntries.push({date:d.actualizado,cand:d.nombre,type:'movimiento',detail:`Actualizado en etapa <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>.${d.vacante?` Puesto: <b>${safe(d.vacante)}</b>.`:''}`,nivel:d.nivel});});
+  descartadosInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'descarte',detail:`Descartado en <b>${safe(d.grupo,'—')}</b>.${d.vacante?` Puesto: <b>${safe(d.vacante)}</b>.`:''} <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
+  inactivosInPeriod.forEach(d=>{allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'inactivo',detail:`Pasado a <b>Inactivo</b> en etapa ${safe(d.grupo,'—')}.${d.vacante?` Puesto: <b>${safe(d.vacante)}</b>.`:''}`,nivel:d.nivel});});
+  ofertaRechazadaInPeriod.forEach(d=>{const razon=getBestComment(d)||'Sin comentario';allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'oferta',detail:`Oferta rechazada en etapa <b>${safe(d.grupo,'—')}</b>.${d.vacante?` Puesto: <b>${safe(d.vacante)}</b>.`:''} <em>${razon.slice(0,120)}${razon.length>120?'…':''}</em>`,nivel:d.nivel});});
+  contratadosInPeriod.forEach(d=>{const cmt=getBestComment(d);allLogEntries.push({date:d.actualizado||d.creado_en,cand:d.nombre,type:'contratado',detail:`✓ Contratado en etapa <b>${safe(d.grupo,'—')}</b>. Nivel: <b>${safe(d.nivel,'—')}</b>.${d.vacante?` Puesto: <b>${safe(d.vacante)}</b>.`:''}` +(cmt?` <em>${cmt.slice(0,120)}${cmt.length>120?'…':''}</em>`:''),nivel:d.nivel});});
   allLogEntries.sort((a,b)=>(toDate(b.date)||0)-(toDate(a.date)||0));
   if(!allLogEntries.length){logEl.innerHTML=emptyState('Sin actividad en el período seleccionado');return;}
   const TC={ingreso:{bg:'#E8F5EE',c:'#1A6B3A',lbl:'INGRESO'},movimiento:{bg:'#EAF2F0',c:'#004A43',lbl:'MOVIM.'},descarte:{bg:'#FDECEA',c:'#9B2335',lbl:'DESCARTE'},inactivo:{bg:'#FEF4E5',c:'#8B5A00',lbl:'INACTIVO'},oferta:{bg:'#FCE8E8',c:'#C04040',lbl:'OF.RECH.'},contratado:{bg:'#D6F0E0',c:'#1A6B3A',lbl:'CONTRATADO'}};
@@ -1800,7 +1881,39 @@ function setDescHistoRange(preset,btn){
   renderDescHistos();
 }
 
+let _bajaPuestoBuilt=false;
+function _renderActiveBajaSubtab(){
+  const active=document.querySelector('#tab-descartados .subtab.active');
+  const id=active?active.dataset.subtab:'desc';
+  if(id==='desc')renderDescHistos();
+  else if(id==='inact')renderInactivos();
+  else if(id==='oferta')renderOfertaRechazada();
+}
+function _buildBajaPuestoFilter(){
+  if(_bajaPuestoBuilt)return;_bajaPuestoBuilt=true;
+  const allSrc=[...pipeData,...(typeof descData!=='undefined'?descData:[])];
+  const puestos=[...new Set(allSrc.map(d=>d.vacante).filter(Boolean))].sort();
+  if(!puestos.length)return;
+  const wrap=document.getElementById('baja-puesto-filter-wrap');
+  const fc=document.getElementById('filter-baja-puesto');
+  if(wrap)wrap.style.display='';if(!fc)return;
+  const allBtn=document.createElement('button');allBtn.className='filter-btn on';allBtn.textContent='Todos';
+  allBtn.onclick=()=>{_bajaPuestoFilter.clear();fc.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allBtn.classList.add('on');_renderActiveBajaSubtab();};
+  fc.appendChild(allBtn);
+  puestos.forEach(p=>{
+    const btn=document.createElement('button');btn.className='filter-btn';btn.textContent=p;
+    btn.onclick=()=>{
+      if(_bajaPuestoFilter.has(p)){_bajaPuestoFilter.delete(p);btn.classList.remove('on');}
+      else{_bajaPuestoFilter.add(p);btn.classList.add('on');}
+      allBtn.classList.toggle('on',_bajaPuestoFilter.size===0);
+      _renderActiveBajaSubtab();
+    };
+    fc.appendChild(btn);
+  });
+}
+
 function renderDescHistos(){
+  _buildBajaPuestoFilter();
   // Date filter
   const hFrom=document.getElementById('desc-histo-from')?.value;
   const hTo=document.getElementById('desc-histo-to')?.value;
@@ -1811,7 +1924,7 @@ function renderDescHistos(){
     if(hFrom&&dt<new Date(hFrom+'T00:00:00'))return false;
     if(hTo&&dt>new Date(hTo+'T23:59:59'))return false;
     return true;
-  });
+  }).filter(d=>_bajaPuestoFilter.size===0||_bajaPuestoFilter.has(d.vacante));
 
   const pyxC=document.getElementById('pyxoom-canvas');
   if(pyxC){
@@ -1897,7 +2010,8 @@ function getOrCat(r){
 let _inactivosRendered=false;
 function renderInactivos(){
   _inactivosRendered=true;
-  const inactData=pipeData.filter(d=>d.estatus==='Inactivo').map(d=>({...d,cat:getCat(bestTextForCat(d))}));
+  _buildBajaPuestoFilter();
+  const inactData=pipeData.filter(d=>d.estatus==='Inactivo'&&(_bajaPuestoFilter.size===0||_bajaPuestoFilter.has(d.vacante))).map(d=>({...d,cat:getCat(bestTextForCat(d))}));
   const total=inactData.length;
   const kpiEl=document.getElementById('kpi-inact');
   if(!kpiEl)return;
@@ -2125,7 +2239,8 @@ function renderInactivos(){
 let _ofertaRendered=false;
 function renderOfertaRechazada(){
   _ofertaRendered=true;
-  const orData=pipeData.filter(d=>OFERTA_STATUSES.includes(d.estatus)).map(d=>({...d,orCat:getOrCat(getBestComment(d))}));
+  _buildBajaPuestoFilter();
+  const orData=pipeData.filter(d=>OFERTA_STATUSES.includes(d.estatus)&&(_bajaPuestoFilter.size===0||_bajaPuestoFilter.has(d.vacante))).map(d=>({...d,orCat:getOrCat(getBestComment(d))}));
   const total=orData.length;
   const kpiEl=document.getElementById('kpi-or');
   if(!kpiEl)return;
@@ -2589,7 +2704,7 @@ function renderTimeline(){
 // ═══════════════════════════════════════════════════════════
 (function(){
   const allData=[...pipeData].sort((a,b)=>{const da=toDate(a.creado_en),db=toDate(b.creado_en);return(db||0)-(da||0);});
-  let selStatus=new Set(),selNivel=new Set(),selEtapa=new Set(),showAll=false;
+  let selStatus=new Set(),selNivel=new Set(),selEtapa=new Set(),selPuesto=new Set(),showAll=false;
 
   function makeMultiBtn(label,set,key,container,renderFn){
     const b=document.createElement('button');b.className='filter-btn';b.textContent=safe(label,'—');
@@ -2602,11 +2717,18 @@ function renderTimeline(){
   NIVEL_LIST.forEach(n=>makeMultiBtn(n,selNivel,n,nfEl,render));
   const efEl=document.getElementById('filter-etapa');
   STAGES.forEach(s=>{if(allData.some(d=>d.grupo&&d.grupo.includes(s)))makeMultiBtn(s,selEtapa,s,efEl,render);});
+  const pfEl=document.getElementById('filter-puesto');
+  const detPuestos=[...new Set(allData.map(d=>d.vacante).filter(Boolean))].sort();
+  if(detPuestos.length&&pfEl){
+    const pw=document.getElementById('detalle-puesto-filter-wrap');if(pw)pw.style.display='';
+    detPuestos.forEach(p=>makeMultiBtn(p,selPuesto,p,pfEl,render));
+  }
 
   function matches(d,q){
     if(selStatus.size>0&&!selStatus.has(d.estatus))return false;
     if(selNivel.size>0&&!selNivel.has(d.nivel))return false;
     if(selEtapa.size>0&&!STAGES.filter(s=>selEtapa.has(s)).some(s=>d.grupo&&d.grupo.includes(s)))return false;
+    if(selPuesto.size>0&&!selPuesto.has(d.vacante))return false;
     if(q){const ql=q.toLowerCase();return(d.nombre||'').toLowerCase().includes(ql)||(d.razon||'').toLowerCase().includes(ql)||(d.grupo||'').toLowerCase().includes(ql)||(d.estatus||'').toLowerCase().includes(ql);}
     return true;
   }
@@ -2614,7 +2736,7 @@ function renderTimeline(){
     const q=(document.getElementById('search-box').value||'').trim();
     const filtered=allData.filter(d=>matches(d,q));
     const toShow=showAll?filtered:filtered.slice(0,30);
-    document.getElementById('detail-count').textContent=`${filtered.length} registro${filtered.length!==1?'s':''}${selStatus.size||selNivel.size||selEtapa.size?' (filtrado)':''}`;
+    document.getElementById('detail-count').textContent=`${filtered.length} registro${filtered.length!==1?'s':''}${selStatus.size||selNivel.size||selEtapa.size||selPuesto.size?' (filtrado)':''}`;
     const pyxV=d=>d.pyxoom!=null?`<span class="${scoreClass(d.pyxoom)}">${parseFloat(d.pyxoom).toFixed(1)}</span>`:'<span style="color:var(--text-muted)">—</span>';
     const bcV=d=>d.bc_panel!=null?`<span class="${scoreClass(d.bc_panel)}">${parseFloat(d.bc_panel).toFixed(0)}</span>`:'<span style="color:var(--text-muted)">—</span>';
     const statusBadge=s=>{if(!s)return'<span style="color:var(--text-muted)">—</span>';const bg=s==='Descartado'?'#FDECEA':s.startsWith('Contrat')?'#E8F5EE':'#EAF2F0';const c=s==='Descartado'?'#9B2335':s.startsWith('Contrat')?'#1A6B3A':'#004A43';return`<span class="badge" style="background:${bg};color:${c}">${s}</span>`;};
