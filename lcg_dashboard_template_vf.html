@@ -340,6 +340,10 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
     <div class="card" style="margin-bottom:0"><div class="card-title">Por fuente de origen</div><div id="fuente-bars"></div></div>
   </div>
   <div style="margin-bottom:1.5rem"></div>
+  <div id="vacante-global-bar" style="display:none;align-items:center;gap:8px;margin-bottom:1rem;padding:8px 14px;background:#EAF5F2;border:1px solid #B2D8D0;border-radius:10px;">
+    <span style="font-size:11px;font-weight:600;color:#004A43;letter-spacing:.04em;text-transform:uppercase">Vacante activa</span>
+    <span id="vacante-global-label" style="font-size:12px;font-weight:700;color:#004A43;background:#fff;padding:3px 10px;border-radius:6px;border:1px solid #B2D8D0"></span>
+  </div>
   <div class="section-label">Candidatos activos — ingreso semanal (más reciente primero)</div>
   <div class="card"><div id="weekly-activo"></div></div>
   <div class="section-label">Todos los candidatos activos</div>
@@ -585,7 +589,7 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
     <div class="dt-wrap"><table class="dt">
       <thead><tr>
         <th>Ingreso</th><th>Candidato</th><th>Estatus</th><th>Etapa</th><th>Nivel</th>
-        <th>Fuente</th><th>Pyxoom</th><th>BC/Panel</th><th>Último comentario / Razón</th><th>Días</th>
+        <th>Fuente</th><th>Vacante</th><th>Pyxoom</th><th>BC/Panel</th><th>Último comentario / Razón</th><th>Días</th>
       </tr></thead>
       <tbody id="detail-tbody"></tbody>
     </table>
@@ -912,6 +916,14 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
 // TAB 1: PIPELINE ACTIVO
 // ═══════════════════════════════════════════════════════════
 (function(){
+  // ── Show active Vacante banner ─────────────────────────────────
+  const _vg=(typeof VACANTE_GLOBAL!=='undefined'&&VACANTE_GLOBAL)?VACANTE_GLOBAL:'';
+  if(_vg){
+    const _vbar=document.getElementById('vacante-global-bar');
+    const _vlbl=document.getElementById('vacante-global-label');
+    if(_vbar&&_vlbl){_vlbl.textContent=_vg;_vbar.style.display='flex';}
+  }
+
   const activos=pipeData.filter(isActive);
   const contratados=pipeData.filter(d=>d.estatus==='Contratado'||d.estatus==='Contratados');
   const total=pipeData.length;
@@ -986,7 +998,9 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
       const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
       const row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 14px;border-top:1px solid #F5F0EC;font-size:11px;flex-wrap:wrap;';
-      row.innerHTML=`<div style="flex:1;min-width:120px;font-weight:500;color:var(--text-primary)">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div><span style="background:${nc}18;color:${nc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span><span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.grupo,'—')}</span>${d.dias_pipeline!=null?`<span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text-muted)">${d.dias_pipeline}d</span>`:''}<span style="font-size:9px;color:var(--text-muted);margin-left:auto">${safe(d.fuente,'—')}</span>`;
+      row.innerHTML=`<div style="flex:1;min-width:120px;font-weight:500;color:var(--text-primary)">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div><span style="background:${nc}18;color:${nc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span><span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.grupo,'—')}</span>${d.dias_pipeline!=null?`<span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text-muted)">${d.dias_pipeline}d</span>`:''}<span style="font-size:9px;color:var(--text-muted);margin-left:auto">${safe(d.fuente,'—')}</span>${d.vacante?`<span style="font-size:9px;background:#EAF5F2;color:#004A43;padding:2px 7px;border-radius:4px;font-weight:600;white-space:nowrap">${safe(d.vacante)}</span>`:''}`;
+      row.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)}</div>${d.vacante?`<div style="font-size:10px;color:#A9F6E8;margin-top:5px;font-weight:600;letter-spacing:.02em">📋 ${safe(d.vacante)}</div>`:''} ${d.pyxoom!=null?`<div style="font-size:10px;color:#8AA8A5;margin-top:3px">Pyxoom: ${parseFloat(d.pyxoom).toFixed(1)}</div>`:''}`));
+      row.addEventListener('mousemove',moveTip);row.addEventListener('mouseleave',hideTip);
       det.appendChild(row);
     });
     blk.appendChild(det);
@@ -1006,13 +1020,13 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
     const card=document.createElement('div');card.className='cand-card';
     card.innerHTML=`<div class="cand-accent" style="background:${nc}"></div>
       <div class="cand-info"><div class="cand-name">${safe(d.nombre)}</div>
-      <div class="cand-sub">Fuente: ${safe(d.fuente)} · Ingresó ${fmt(d.creado_en)}${d.entrevistador?' · '+d.entrevistador:''}</div></div>
+      <div class="cand-sub">Fuente: ${safe(d.fuente)} · Ingresó ${fmt(d.creado_en)}${d.entrevistador?' · '+d.entrevistador:''}${d.vacante?` · <span style="color:#004A43;font-weight:600">${safe(d.vacante)}</span>`:''}</div></div>
       <div class="cand-meta">
         <span class="badge badge-stage" style="background:${sc}18;color:${sc}">${stageAbr(d.grupo)}</span>
         <span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span>
         ${d.dias_pipeline!=null?`<span class="${daysCls(d.dias_pipeline)}">${d.dias_pipeline}d</span>`:''}
       </div>`;
-    card.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)}</div>${d.pyxoom!=null?`<div style="font-size:10px;color:#8AA8A5;margin-top:3px">Pyxoom: ${parseFloat(d.pyxoom).toFixed(1)}</div>`:''}`));
+    card.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)}</div>${d.vacante?`<div style="font-size:10px;color:#A9F6E8;margin-top:5px;font-weight:600;letter-spacing:.02em">📋 ${safe(d.vacante)}</div>`:''} ${d.pyxoom!=null?`<div style="font-size:10px;color:#8AA8A5;margin-top:3px">Pyxoom: ${parseFloat(d.pyxoom).toFixed(1)}</div>`:''}`));
     card.addEventListener('mousemove',moveTip);card.addEventListener('mouseleave',hideTip);cw.appendChild(card);
   });
 })();
@@ -2607,7 +2621,7 @@ function renderTimeline(){
     document.getElementById('detail-tbody').innerHTML=toShow.map(d=>{
       const nc=NIVEL_COLORS[d.nivel]||'#888';const razon=(d.razon||'').trim();const bestComment=getBestComment(d);
       const displayRazon=bestComment||razon||'—';const shortR=displayRazon.length>75?displayRazon.slice(0,73)+'…':displayRazon;
-      return`<tr><td class="td-mono">${fmtShort(d.creado_en)}</td><td style="font-weight:500">${safe(d.nombre,'—')}</td><td>${statusBadge(d.estatus)}</td><td><span class="badge badge-stage" style="font-size:9px">${safe(d.grupo,'—')}</span></td><td><span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span></td><td style="font-size:11px;color:var(--text-secondary)">${safe(d.fuente,'—')}</td><td>${pyxV(d)}</td><td>${bcV(d)}</td><td class="td-razon" title="${displayRazon.replace(/"/g,'&quot;')}">${shortR}</td><td><span class="${daysCls(d.dias_pipeline)}">${d.dias_pipeline!=null?d.dias_pipeline+'d':'—'}</span></td></tr>`;
+      return`<tr><td class="td-mono">${fmtShort(d.creado_en)}</td><td style="font-weight:500">${safe(d.nombre,'—')}</td><td>${statusBadge(d.estatus)}</td><td><span class="badge badge-stage" style="font-size:9px">${safe(d.grupo,'—')}</span></td><td><span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span></td><td style="font-size:11px;color:var(--text-secondary)">${safe(d.fuente,'—')}</td><td style="font-size:11px;color:var(--text-secondary)">${d.vacante?`<span style="background:#EAF5F2;color:#004A43;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600">${safe(d.vacante)}</span>`:'<span style="color:var(--text-muted)">—</span>'}</td><td>${pyxV(d)}</td><td>${bcV(d)}</td><td class="td-razon" title="${displayRazon.replace(/"/g,'&quot;')}">${shortR}</td><td><span class="${daysCls(d.dias_pipeline)}">${d.dias_pipeline!=null?d.dias_pipeline+'d':'—'}</span></td></tr>`;
     }).join('');
     const smb=document.getElementById('show-more-btn');
     if(filtered.length>30&&!showAll){smb.style.display='block';smb.textContent=`Ver todos los ${filtered.length} registros`;}else smb.style.display='none';
