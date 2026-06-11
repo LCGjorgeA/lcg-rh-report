@@ -739,12 +739,12 @@ table.dt tbody td{padding:7px 10px;vertical-align:middle;}
 // ═══════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════
-const STAGES=['Recepción de CV','Pruebas de Perfil','Entrevista por Competencias',
-  'Entrevista Técnica & Metodología','Caso de Estudio','Presentación de Caso',
+const STAGES=['Recepción de CV','En Proceso Pruebas de Perfil','Entrevista por Competencias +',
+  'Entrevista Técnica & Metodología','En Proceso Caso de Estudio','Agendado Caso de estudio',
   'Contract Ready','VoBo Región','Contratados'];
 const STAGE_COLORS=['#3B7A70','#1A56A0','#5B3DBF','#8B2252','#B05A00','#7B5800','#A03020','#0A7A5A','#2A7A2A'];
-const STAGE_ABR={'Recepción de CV':'RCV','Pruebas de Perfil':'PP','Entrevista por Competencias':'EPC',
-  'Entrevista Técnica & Metodología':'ETM','Caso de Estudio':'CE','Presentación de Caso':'PDC',
+const STAGE_ABR={'Recepción de CV':'RCV','En Proceso Pruebas de Perfil':'EPPP','Entrevista por Competencias +':'EPC',
+  'Entrevista Técnica & Metodología':'ETM','En Proceso Caso de Estudio':'EPCE','Agendado Caso de estudio':'ACE',
   'Contract Ready':'CR','VoBo Región':'VBR','Contratados':'✓','Inactivo':'–'};
 const NIVEL_COLORS={Alto:'#1A56A0',Sr:'#5B3DBF',Jr:'#6B7280',Bajo:'#B05A00'};
 const NIVEL_LIST=['Alto','Sr','Jr','Bajo'];
@@ -931,6 +931,62 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
 // ═══════════════════════════════════════════════════════════
 // TAB 1: PIPELINE ACTIVO
 // ═══════════════════════════════════════════════════════════
+function _buildPipelineWeekly(activos){
+  const byWeek={};activos.forEach(d=>{const wk=getWeekKey(d.creado_en);if(!wk)return;if(!byWeek[wk])byWeek[wk]=[];byWeek[wk].push(d);});
+  const wEl=document.getElementById('weekly-activo');if(!wEl)return;wEl.innerHTML='';
+  Object.keys(byWeek).sort().reverse().forEach(wk=>{
+    const items=byWeek[wk];
+    const nCts={};NIVEL_LIST.forEach(nv=>{nCts[nv]=items.filter(d=>d.nivel===nv).length;});
+    const eCts={};items.forEach(d=>{const e=safe(d.grupo,'—');eCts[e]=(eCts[e]||0)+1;});
+    const topEtapas=Object.entries(eCts).sort((a,b)=>b[1]-a[1]).slice(0,4);
+    const nivelKpis=NIVEL_LIST.map(nv=>{if(!nCts[nv])return'';const nc=NIVEL_COLORS[nv]||'#888';return`<div style="display:inline-flex;align-items:center;gap:3px;font-size:10px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:2px;background:${nc};display:inline-block"></span><span style="color:${nc};font-weight:600">${nv}</span><span style="color:var(--text-muted);font-family:'DM Mono',monospace">${nCts[nv]}</span></div>`;}).filter(Boolean).join('');
+    const etapaKpis=topEtapas.map(([e,n])=>{const sc=stageColor(e);return`<span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;white-space:nowrap">${stageAbr(e)} ${n}</span>`;}).join('');
+    const eid=`wex-${wk.replace(/-/g,'')}`;
+    const blk=document.createElement('div');
+    blk.style.cssText='border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;background:#fff;';
+    const hdr=document.createElement('div');
+    hdr.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 14px;flex-wrap:wrap;cursor:pointer;user-select:none;';
+    hdr.innerHTML=`<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--lcg-dark);background:#EAF5F2;padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0">${fmtWeek(wk)}</div><div style="font-size:12px;font-weight:700;color:var(--lcg-dark);font-family:'DM Mono',monospace;flex-shrink:0;min-width:22px">${items.length}</div><div style="display:flex;gap:8px;flex-wrap:wrap;flex:1;align-items:center">${nivelKpis}</div><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${etapaKpis}</div><div id="btn-${eid}" style="flex-shrink:0;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-size:14px;font-weight:700;color:var(--lcg-dark);display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s">+</div>`;
+    blk.appendChild(hdr);
+    const det=document.createElement('div');det.id=eid;det.style.display='none';
+    [...items].sort((a,b)=>(stageIdx(b.grupo)??-1)-(stageIdx(a.grupo)??-1)).forEach(d=>{
+      const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 14px;border-top:1px solid #F5F0EC;font-size:11px;flex-wrap:wrap;';
+      row.dataset.vacante=d.vacante||'';
+      row.innerHTML=`<div style="flex:1;min-width:120px;font-weight:500;color:var(--text-primary)">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div><span style="background:${nc}18;color:${nc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span><span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.grupo,'—')}</span>${d.dias_pipeline!=null?`<span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text-muted)">${d.dias_pipeline}d</span>`:''}<span style="font-size:9px;color:var(--text-muted);margin-left:auto">${safe(d.fuente,'—')}</span>`;
+      row.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)}</div>${d.vacante?`<div style="font-size:10px;color:#A9F6E8;margin-top:5px;font-weight:600;letter-spacing:.02em">📋 ${safe(d.vacante)}</div>`:''} ${d.pyxoom!=null?`<div style="font-size:10px;color:#8AA8A5;margin-top:3px">Pyxoom: ${parseFloat(d.pyxoom).toFixed(1)}</div>`:''}`));
+      row.addEventListener('mousemove',moveTip);row.addEventListener('mouseleave',hideTip);
+      det.appendChild(row);
+    });
+    blk.appendChild(det);
+    hdr.addEventListener('click',()=>{
+      const open=det.style.display!=='none';
+      det.style.display=open?'none':'block';
+      const btn=document.getElementById('btn-'+eid);
+      if(btn){btn.textContent=open?'+':'−';btn.style.background=open?'#fff':'#EAF5F2';}
+    });
+    wEl.appendChild(blk);
+  });
+}
+function _buildPipelineCards(activos){
+  const cw=document.getElementById('cand-cards-wrap');if(!cw)return;cw.innerHTML='';
+  [...activos].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0)).forEach(d=>{
+    const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
+    const card=document.createElement('div');card.className='cand-card';
+    card.dataset.vacante=d.vacante||'';
+    card.innerHTML=`<div class="cand-accent" style="background:${nc}"></div>
+      <div class="cand-info"><div class="cand-name">${safe(d.nombre)}</div>
+      <div class="cand-sub">Fuente: ${safe(d.fuente)} · Ingresó ${fmt(d.creado_en)}${d.entrevistador?' · '+d.entrevistador:''}</div></div>
+      <div class="cand-meta">
+        <span class="badge badge-stage" style="background:${sc}18;color:${sc}">${stageAbr(d.grupo)}</span>
+        <span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span>
+        ${d.dias_pipeline!=null?`<span class="${daysCls(d.dias_pipeline)}">${d.dias_pipeline}d</span>`:''}
+      </div>`;
+    card.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)}</div>${d.vacante?`<div style="font-size:10px;color:#A9F6E8;margin-top:5px;font-weight:600;letter-spacing:.02em">📋 ${safe(d.vacante)}</div>`:''} ${d.pyxoom!=null?`<div style="font-size:10px;color:#8AA8A5;margin-top:3px">Pyxoom: ${parseFloat(d.pyxoom).toFixed(1)}</div>`:''}`));
+    card.addEventListener('mousemove',moveTip);card.addEventListener('mouseleave',hideTip);cw.appendChild(card);
+  });
+}
 (function(){
   // ── Show active Vacante banner ─────────────────────────────────
   const _vg=(typeof VACANTE_GLOBAL!=='undefined'&&VACANTE_GLOBAL)?VACANTE_GLOBAL:'';
@@ -992,61 +1048,9 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
   const fS=Object.entries(fCts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,v])=>({label:l,value:v}));
   buildBars('fuente-bars',fS,Math.max(...fS.map(x=>x.value),1),()=>'#00B880');
 
-  // Weekly KPI table (collapsible rows)
-  const byWeek={};activos.forEach(d=>{const wk=getWeekKey(d.creado_en);if(!wk)return;if(!byWeek[wk])byWeek[wk]=[];byWeek[wk].push(d);});
-  const wEl=document.getElementById('weekly-activo');wEl.innerHTML='';
-  Object.keys(byWeek).sort().reverse().forEach(wk=>{
-    const items=byWeek[wk];
-    const nCts={};NIVEL_LIST.forEach(nv=>{nCts[nv]=items.filter(d=>d.nivel===nv).length;});
-    const eCts={};items.forEach(d=>{const e=safe(d.grupo,'—');eCts[e]=(eCts[e]||0)+1;});
-    const topEtapas=Object.entries(eCts).sort((a,b)=>b[1]-a[1]).slice(0,4);
-    const nivelKpis=NIVEL_LIST.map(nv=>{if(!nCts[nv])return'';const nc=NIVEL_COLORS[nv]||'#888';return`<div style="display:inline-flex;align-items:center;gap:3px;font-size:10px;flex-shrink:0"><span style="width:7px;height:7px;border-radius:2px;background:${nc};display:inline-block"></span><span style="color:${nc};font-weight:600">${nv}</span><span style="color:var(--text-muted);font-family:'DM Mono',monospace">${nCts[nv]}</span></div>`;}).filter(Boolean).join('');
-    const etapaKpis=topEtapas.map(([e,n])=>{const sc=stageColor(e);return`<span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;white-space:nowrap">${stageAbr(e)} ${n}</span>`;}).join('');
-    const eid=`wex-${wk.replace(/-/g,'')}`;
-    const blk=document.createElement('div');
-    blk.style.cssText='border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;background:#fff;';
-    const hdr=document.createElement('div');
-    hdr.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 14px;flex-wrap:wrap;cursor:pointer;user-select:none;';
-    hdr.innerHTML=`<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--lcg-dark);background:#EAF5F2;padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0">${fmtWeek(wk)}</div><div style="font-size:12px;font-weight:700;color:var(--lcg-dark);font-family:'DM Mono',monospace;flex-shrink:0;min-width:22px">${items.length}</div><div style="display:flex;gap:8px;flex-wrap:wrap;flex:1;align-items:center">${nivelKpis}</div><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${etapaKpis}</div><div id="btn-${eid}" style="flex-shrink:0;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-size:14px;font-weight:700;color:var(--lcg-dark);display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s">+</div>`;
-    blk.appendChild(hdr);
-    const det=document.createElement('div');det.id=eid;det.style.display='none';
-    [...items].sort((a,b)=>(stageIdx(b.grupo)??-1)-(stageIdx(a.grupo)??-1)).forEach(d=>{
-      const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
-      const row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 14px;border-top:1px solid #F5F0EC;font-size:11px;flex-wrap:wrap;';
-      row.dataset.vacante=d.vacante||'';
-      row.innerHTML=`<div style="flex:1;min-width:120px;font-weight:500;color:var(--text-primary)">${safe(d.nombre,'—').split(' ').slice(0,3).join(' ')}</div><span style="background:${nc}18;color:${nc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.nivel,'—')}</span><span style="background:${sc}18;color:${sc};font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px">${safe(d.grupo,'—')}</span>${d.dias_pipeline!=null?`<span style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text-muted)">${d.dias_pipeline}d</span>`:''}<span style="font-size:9px;color:var(--text-muted);margin-left:auto">${safe(d.fuente,'—')}</span>`;
-      row.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)}</div>${d.vacante?`<div style="font-size:10px;color:#A9F6E8;margin-top:5px;font-weight:600;letter-spacing:.02em">📋 ${safe(d.vacante)}</div>`:''} ${d.pyxoom!=null?`<div style="font-size:10px;color:#8AA8A5;margin-top:3px">Pyxoom: ${parseFloat(d.pyxoom).toFixed(1)}</div>`:''}`));
-      row.addEventListener('mousemove',moveTip);row.addEventListener('mouseleave',hideTip);
-      det.appendChild(row);
-    });
-    blk.appendChild(det);
-    hdr.addEventListener('click',()=>{
-      const open=det.style.display!=='none';
-      det.style.display=open?'none':'block';
-      const btn=document.getElementById('btn-'+eid);
-      if(btn){btn.textContent=open?'+':'−';btn.style.background=open?'#fff':'#EAF5F2';}
-    });
-    wEl.appendChild(blk);
-  });
-
-  // Candidate cards
-  const cw=document.getElementById('cand-cards-wrap');
-  [...activos].sort((a,b)=>(toDate(b.actualizado||b.creado_en)||0)-(toDate(a.actualizado||a.creado_en)||0)).forEach(d=>{
-    const sc=stageColor(d.grupo),nc=NIVEL_COLORS[d.nivel]||'#888';
-    const card=document.createElement('div');card.className='cand-card';
-    card.dataset.vacante=d.vacante||'';
-    card.innerHTML=`<div class="cand-accent" style="background:${nc}"></div>
-      <div class="cand-info"><div class="cand-name">${safe(d.nombre)}</div>
-      <div class="cand-sub">Fuente: ${safe(d.fuente)} · Ingresó ${fmt(d.creado_en)}${d.entrevistador?' · '+d.entrevistador:''}</div></div>
-      <div class="cand-meta">
-        <span class="badge badge-stage" style="background:${sc}18;color:${sc}">${stageAbr(d.grupo)}</span>
-        <span class="${nivelCls(d.nivel)}" style="background:${nc}18;color:${nc}">${safe(d.nivel,'—')}</span>
-        ${d.dias_pipeline!=null?`<span class="${daysCls(d.dias_pipeline)}">${d.dias_pipeline}d</span>`:''}
-      </div>`;
-    card.addEventListener('mouseenter',e=>showTip(e,`<div style="font-weight:600;color:#A9F6E8;margin-bottom:3px">${safe(d.nombre)}</div><div style="font-size:10px;color:#8AA8A5">${safe(d.grupo)}</div>${d.vacante?`<div style="font-size:10px;color:#A9F6E8;margin-top:5px;font-weight:600;letter-spacing:.02em">📋 ${safe(d.vacante)}</div>`:''} ${d.pyxoom!=null?`<div style="font-size:10px;color:#8AA8A5;margin-top:3px">Pyxoom: ${parseFloat(d.pyxoom).toFixed(1)}</div>`:''}`));
-    card.addEventListener('mousemove',moveTip);card.addEventListener('mouseleave',hideTip);cw.appendChild(card);
-  });
+  // Weekly accordion + candidate cards (via shared render functions)
+  _buildPipelineWeekly(activos);
+  _buildPipelineCards(activos);
 })();
 
 // Pipeline puesto filter builder
@@ -1058,13 +1062,10 @@ document.querySelectorAll('.subtab').forEach(btn=>btn.addEventListener('click',(
   const fc=document.getElementById('filter-pipeline-puesto');
   if(wrap)wrap.style.display='';
   function apply(){
-    const active=_pipelinePuestoFilter.size>0;
-    document.querySelectorAll('#weekly-activo [data-vacante]').forEach(el=>{
-      el.style.display=(active&&!_pipelinePuestoFilter.has(el.dataset.vacante))?'none':'';
-    });
-    document.querySelectorAll('#cand-cards-wrap [data-vacante]').forEach(el=>{
-      el.style.display=(active&&!_pipelinePuestoFilter.has(el.dataset.vacante))?'none':'';
-    });
+    const base=pipeData.filter(isActive);
+    const filtered=_pipelinePuestoFilter.size===0?base:base.filter(d=>_pipelinePuestoFilter.has(d.vacante));
+    _buildPipelineWeekly(filtered);
+    _buildPipelineCards(filtered);
   }
   const allBtn=document.createElement('button');allBtn.className='filter-btn on';allBtn.textContent='Todos';
   allBtn.onclick=()=>{_pipelinePuestoFilter.clear();fc.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));allBtn.classList.add('on');apply();};
@@ -1581,7 +1582,10 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,contr
 // ═══════════════════════════════════════════════════════════
 // TAB 3: DESCARTADOS
 // ═══════════════════════════════════════════════════════════
-(function(){
+function renderDescartados(){
+  ['kpi-desc','pipeline-desc','cat-bars','decisor-bars','nivel-desc-bars','matrix-wrap','tl-controls-desc','weekly-desc','unclassified-list','desc-wk-svg','desc-wk-legend'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
+  /* shadow global descData with puesto-filtered version */
+  const descData=(typeof DESCARTADOS_DATA!=='undefined'?DESCARTADOS_DATA:[]).map(d=>({...d,cat:getCat(bestTextForCat(d))})).filter(d=>_bajaPuestoFilter.size===0||_bajaPuestoFilter.has(d.vacante));
   const total=descData.length;
   if(!total){document.getElementById('kpi-desc').innerHTML='<div class="kpi dark"><div class="kpi-label">Total descartados</div><div class="kpi-value">0</div><div class="kpi-sub">Sin datos</div></div>';return;}
   const conPyx=descData.filter(d=>d.pyxoom!=null).length;
@@ -1869,7 +1873,8 @@ function drawWaterfall(inicio,nuevos,descartados,inactivos,ofertaRechazada,contr
       activeCats.forEach(c=>{lgEl.innerHTML+=`<div class="tl-leg-item"><div class="tl-leg-dot" style="background:${c.color};height:10px;width:10px;border-radius:2px"></div><span style="font-size:10.5px">${c.name}</span></div>`;});
     }
   })();
-})();
+}
+renderDescartados();
 
 function setDescHistoRange(preset,btn){
   document.querySelectorAll('#desc-histo-filter-wrap .date-shortcut').forEach(b=>b.classList.remove('on'));
@@ -1885,7 +1890,7 @@ let _bajaPuestoBuilt=false;
 function _renderActiveBajaSubtab(){
   const active=document.querySelector('#tab-descartados .subtab.active');
   const id=active?active.dataset.subtab:'desc';
-  if(id==='desc')renderDescHistos();
+  if(id==='desc'){renderDescartados();renderDescHistos();}
   else if(id==='inact')renderInactivos();
   else if(id==='oferta')renderOfertaRechazada();
 }
